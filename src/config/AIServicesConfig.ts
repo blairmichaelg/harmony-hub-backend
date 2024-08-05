@@ -1,8 +1,9 @@
-// AIServicesConfig.ts
+// src/config/AIServicesConfig.ts
 
 import { z } from 'zod';
 
-import { getEnvVar, parseJSON } from './utils';
+import { getEnvVariables } from './EnvironmentVariables';
+import { parseJSON } from './utils';
 
 const aiModelSchema = z.object({
   name: z.string(),
@@ -62,67 +63,69 @@ const aiServicesConfigSchema = z.object({
 
 type AIServicesConfig = z.infer<typeof aiServicesConfigSchema>;
 
+const env = getEnvVariables();
+
 const aiServicesConfig: AIServicesConfig = aiServicesConfigSchema.parse({
-  defaultModel: getEnvVar('AI_DEFAULT_MODEL', 'gpt-3.5-turbo'),
-  models: parseJSON(getEnvVar('AI_MODELS', '{}'), {
+  defaultModel: env.AI_DEFAULT_MODEL,
+  models: parseJSON(env.AI_MODELS, {
     'gpt-3.5-turbo': {
       name: 'GPT-3.5 Turbo',
       version: '1.0',
-      endpoint: getEnvVar('GPT_35_TURBO_ENDPOINT', 'https://api.openai.com/v1/chat/completions'),
-      apiKey: getEnvVar('GPT_35_TURBO_API_KEY'),
-      maxTokens: parseInt(getEnvVar('GPT_35_TURBO_MAX_TOKENS', '4096'), 10),
-      temperature: parseFloat(getEnvVar('GPT_35_TURBO_TEMPERATURE', '0.7')),
+      endpoint: env.GPT_35_TURBO_ENDPOINT,
+      apiKey: env.GPT_35_TURBO_API_KEY,
+      maxTokens: parseInt(env.GPT_35_TURBO_MAX_TOKENS, 10),
+      temperature: parseFloat(env.GPT_35_TURBO_TEMPERATURE),
     },
     'gpt-4': {
       name: 'GPT-4',
       version: '1.0',
-      endpoint: getEnvVar('GPT_4_ENDPOINT', 'https://api.openai.com/v1/chat/completions'),
-      apiKey: getEnvVar('GPT_4_API_KEY'),
-      maxTokens: parseInt(getEnvVar('GPT_4_MAX_TOKENS', '8192'), 10),
-      temperature: parseFloat(getEnvVar('GPT_4_TEMPERATURE', '0.7')),
+      endpoint: env.GPT_4_ENDPOINT,
+      apiKey: env.GPT_4_API_KEY,
+      maxTokens: parseInt(env.GPT_4_MAX_TOKENS, 10),
+      temperature: parseFloat(env.GPT_4_TEMPERATURE),
     },
   }),
   jobQueue: {
-    type: getEnvVar('AI_JOB_QUEUE_TYPE', 'redis') as 'redis' | 'rabbitmq' | 'sqs',
-    url: getEnvVar('AI_JOB_QUEUE_URL', 'redis://localhost:6379'),
-    maxConcurrency: parseInt(getEnvVar('AI_JOB_QUEUE_MAX_CONCURRENCY', '5'), 10),
-    retryAttempts: parseInt(getEnvVar('AI_JOB_QUEUE_RETRY_ATTEMPTS', '3'), 10),
-    retryDelay: parseInt(getEnvVar('AI_JOB_QUEUE_RETRY_DELAY', '1000'), 10),
+    type: env.AI_JOB_QUEUE_TYPE,
+    url: env.AI_JOB_QUEUE_URL,
+    maxConcurrency: parseInt(env.AI_JOB_QUEUE_MAX_CONCURRENCY, 10),
+    retryAttempts: parseInt(env.AI_JOB_QUEUE_RETRY_ATTEMPTS, 10),
+    retryDelay: parseInt(env.AI_JOB_QUEUE_RETRY_DELAY, 10),
   },
   providers: {
-    openai: getEnvVar('OPENAI_API_KEY')
+    openai: env.OPENAI_API_KEY
       ? {
-          apiKey: getEnvVar('OPENAI_API_KEY'),
-          organization: getEnvVar('OPENAI_ORGANIZATION'),
-          modelMapping: parseJSON(getEnvVar('OPENAI_MODEL_MAPPING', '{}')),
+          apiKey: env.OPENAI_API_KEY,
+          organization: env.OPENAI_ORGANIZATION,
+          modelMapping: parseJSON(env.OPENAI_MODEL_MAPPING, {}),
         }
       : undefined,
-    googleAI: getEnvVar('GOOGLE_AI_API_KEY')
+    googleAI: env.GOOGLE_AI_API_KEY
       ? {
-          apiKey: getEnvVar('GOOGLE_AI_API_KEY'),
-          projectId: getEnvVar('GOOGLE_AI_PROJECT_ID'),
-          location: getEnvVar('GOOGLE_AI_LOCATION', 'us-central1'),
+          apiKey: env.GOOGLE_AI_API_KEY,
+          projectId: env.GOOGLE_AI_PROJECT_ID!,
+          location: env.GOOGLE_AI_LOCATION,
         }
       : undefined,
-    huggingface: getEnvVar('HUGGINGFACE_API_KEY')
+    huggingface: env.HUGGINGFACE_API_KEY
       ? {
-          apiKey: getEnvVar('HUGGINGFACE_API_KEY'),
-          modelEndpoint: getEnvVar('HUGGINGFACE_MODEL_ENDPOINT'),
+          apiKey: env.HUGGINGFACE_API_KEY,
+          modelEndpoint: env.HUGGINGFACE_MODEL_ENDPOINT!,
         }
       : undefined,
   },
   fineTuning: {
-    enabled: getEnvVar('AI_FINE_TUNING_ENABLED', 'false') === 'true',
-    datasetPath: getEnvVar('AI_FINE_TUNING_DATASET_PATH', './datasets/fine_tuning'),
-    epochs: parseInt(getEnvVar('AI_FINE_TUNING_EPOCHS', '3'), 10),
-    learningRate: parseFloat(getEnvVar('AI_FINE_TUNING_LEARNING_RATE', '0.00002')),
-    batchSize: parseInt(getEnvVar('AI_FINE_TUNING_BATCH_SIZE', '32'), 10),
-    validationSplit: parseFloat(getEnvVar('AI_FINE_TUNING_VALIDATION_SPLIT', '0.2')),
+    enabled: env.AI_FINE_TUNING_ENABLED === 'true',
+    datasetPath: env.AI_FINE_TUNING_DATASET_PATH,
+    epochs: parseInt(env.AI_FINE_TUNING_EPOCHS, 10),
+    learningRate: parseFloat(env.AI_FINE_TUNING_LEARNING_RATE),
+    batchSize: parseInt(env.AI_FINE_TUNING_BATCH_SIZE, 10),
+    validationSplit: parseFloat(env.AI_FINE_TUNING_VALIDATION_SPLIT),
   },
   caching: {
-    enabled: getEnvVar('AI_CACHING_ENABLED', 'true') === 'true',
-    ttl: parseInt(getEnvVar('AI_CACHING_TTL', '3600'), 10),
-    maxSize: parseInt(getEnvVar('AI_CACHING_MAX_SIZE', '1000'), 10),
+    enabled: env.AI_CACHING_ENABLED === 'true',
+    ttl: parseInt(env.AI_CACHING_TTL, 10),
+    maxSize: parseInt(env.AI_CACHING_MAX_SIZE, 10),
   },
 });
 
