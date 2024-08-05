@@ -1,73 +1,56 @@
-// server/controllers/userController.ts
+// src/controllers/userController.ts
 
-import { NextFunction, Request, Response } from 'express';
+import { Request, Response } from 'express';
 
-import User from '../models/User';
-import { generateToken } from '../services/authService';
+import { createUser, getUserProfile, loginUser } from '../services/authService';
 
-export const registerUser = async (req: Request, res: Response, next: NextFunction) => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
-
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    const user = new User({ email, password });
-
-    await user.save();
-
-    const token = generateToken(user._id);
+    const { username, email, password } = req.body;
+    const user = await createUser(username, email, password);
 
     res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: { id: user._id, email: user.email },
+      success: true,
+      data: user,
     });
   } catch (error) {
-    next(error);
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
   }
 };
 
-export const loginUser = async (req: Request, res: Response, next: NextFunction) => {
+export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
+    const token = await loginUser(email, password);
 
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const isMatch = await user.comparePassword(password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const token = generateToken(user._id);
-
-    res.json({
-      message: 'Login successful',
+    res.status(200).json({
+      success: true,
       token,
-      user: { id: user._id, email: user.email },
     });
   } catch (error) {
-    next(error);
+    res.status(401).json({
+      success: false,
+      error: error.message,
+    });
   }
 };
 
-export const getCurrentUser = async (req: Request, res: Response, next: NextFunction) => {
+export const getProfile = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.user.id).select('-password');
+    const userId = req.user.id;
+    const user = await getUserProfile(userId);
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    res.json(user);
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
   } catch (error) {
-    next(error);
+    res.status(400).json({
+      success: false,
+      error: error.message,
+    });
   }
 };

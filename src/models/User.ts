@@ -1,3 +1,5 @@
+// src/models/User.ts
+
 import bcrypt from 'bcryptjs';
 import mongoose, { Document, Schema } from 'mongoose';
 import validator from 'validator';
@@ -38,13 +40,14 @@ const UserSchema: Schema = new Schema(
 
 UserSchema.pre<IUser>('save', async function (next) {
   if (!this.isModified('password')) return next();
+
   try {
     const salt = await bcrypt.genSalt(10);
 
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
-    next(error);
+    next(error as Error);
   }
 });
 

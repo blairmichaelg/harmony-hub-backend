@@ -1,20 +1,14 @@
-// server/routes/userRoutes.ts
+// src/routes/userRoutes.ts
 
 import express from 'express';
 
-import {
-  getUserProfile,
-  loginUser,
-  refreshToken,
-  registerUser,
-} from '../controllers/userController';
+import { getProfile, login, register } from '../controllers/userController';
 import { protect } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-router.post('/register', registerUser);
-router.post('/login', loginUser);
-router.get('/me', protect, getUserProfile);
-router.post('/refresh-token', refreshToken);
+router.post('/register', (req, res) => void register(req, res));
+router.post('/login', (req, res) => void login(req, res));
+router.get('/profile', protect, (req, res) => void getProfile(req, res));
 
 export default router;
