@@ -1,26 +1,26 @@
-// FeatureFlagConfig.ts
+// src/config/FeatureFlagConfig.ts
 
 import { config } from 'dotenv';
 import * as joi from 'joi';
 
 config();
 
-interface FeatureFlag {
+interface IFeatureFlag {
   name: string;
   enabled: boolean;
   rolloutPercentage?: number;
   userSegments?: string[];
 }
 
-interface ABTest {
+interface IABTest {
   name: string;
   variants: string[];
   distribution: number[];
 }
 
-export interface FeatureFlagConfigType {
-  featureFlags: FeatureFlag[];
-  abTests: ABTest[];
+export interface IFeatureFlagConfig {
+  featureFlags: IFeatureFlag[];
+  abTests: IABTest[];
 }
 
 const featureFlagSchema = joi.object({
@@ -41,7 +41,7 @@ const featureFlagConfigSchema = joi.object({
   abTests: joi.array().items(abTestSchema).required(),
 });
 
-const featureFlagConfig: FeatureFlagConfigType = {
+const featureFlagConfig: IFeatureFlagConfig = {
   featureFlags: [
     {
       name: 'advancedAudioProcessing',

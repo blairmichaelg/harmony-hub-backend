@@ -5,7 +5,7 @@ import * as joi from 'joi';
 
 config();
 
-export interface ServerConfigType {
+export interface IServerConfigType {
   port: number;
   host: string;
   protocol: 'http' | 'https';
@@ -45,7 +45,7 @@ const serverConfigSchema = joi.object({
     .required(),
 });
 
-const serverConfig: ServerConfigType = {
+const serverConfig: IServerConfigType = {
   port: parseInt(process.env.SERVER_PORT || '3000', 10),
   host: process.env.SERVER_HOST || 'localhost',
   protocol: (process.env.SERVER_PROTOCOL || 'http') as 'http' | 'https',

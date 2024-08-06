@@ -71,15 +71,20 @@ const audioProcessingConfigSchema = z.object({
 
 type AudioProcessingConfig = z.infer<typeof audioProcessingConfigSchema>;
 
+const defaultSupportedFormats = [
+  { extension: 'mp3', mimeType: 'audio/mpeg', bitrate: 320000, channels: 2 },
+  { extension: 'wav', mimeType: 'audio/wav', sampleRate: 44100, channels: 2 },
+  { extension: 'ogg', mimeType: 'audio/ogg', bitrate: 128000, channels: 2 },
+  { extension: 'aac', mimeType: 'audio/aac', bitrate: 256000, channels: 2 },
+  { extension: 'flac', mimeType: 'audio/flac', sampleRate: 96000, channels: 2 },
+];
+
 const audioProcessingConfig: AudioProcessingConfig = audioProcessingConfigSchema.parse({
-  supportedFormats: parseJSON(getEnvVar('AUDIO_SUPPORTED_FORMATS', '[]'), [
-    { extension: 'mp3', mimeType: 'audio/mpeg', bitrate: 320000, channels: 2 },
-    { extension: 'wav', mimeType: 'audio/wav', sampleRate: 44100, channels: 2 },
-    { extension: 'ogg', mimeType: 'audio/ogg', bitrate: 128000, channels: 2 },
-    { extension: 'flac', mimeType: 'audio/flac', sampleRate: 96000, channels: 2 },
-  ]),
+  supportedFormats: parseJSON(
+    getEnvVar('AUDIO_SUPPORTED_FORMATS', JSON.stringify(defaultSupportedFormats))
+  ),
   maxFileSize: parseInt(getEnvVar('AUDIO_MAX_FILE_SIZE', '104857600'), 10), // 100MB default
-  defaultCodec: getEnvVar('AUDIO_DEFAULT_CODEC', 'libmp3lame'),
+  defaultCodec: getEnvVar('AUDIO_DEFAULT_CODEC', 'mp3'),
   algorithms: {
     noiseCancellation: {
       enabled: getEnvVar('AUDIO_NOISE_CANCELLATION_ENABLED', 'true') === 'true',
@@ -106,29 +111,44 @@ const audioProcessingConfig: AudioProcessingConfig = audioProcessingConfigSchema
     threadPoolSize: parseInt(getEnvVar('AUDIO_THREAD_POOL_SIZE', '4'), 10),
     bufferSize: parseInt(getEnvVar('AUDIO_BUFFER_SIZE', '4096'), 10),
     useGPU: getEnvVar('AUDIO_USE_GPU', 'false') === 'true',
-    gpuMemoryLimit: parseInt(getEnvVar('AUDIO_GPU_MEMORY_LIMIT', '0'), 10) || undefined,
+    gpuMemoryLimit: parseInt(getEnvVar('AUDIO_GPU_MEMORY_LIMIT', '1073741824'), 10), // 1GB default
   },
-  qualityPresets: parseJSON(getEnvVar('AUDIO_QUALITY_PRESETS', '{}'), {
-    low: { bitrate: 96000, sampleRate: 44100, channels: 2 },
-    medium: { bitrate: 192000, sampleRate: 48000, channels: 2 },
-    high: { bitrate: 320000, sampleRate: 96000, channels: 2 },
-  }),
+  qualityPresets: parseJSON(
+    getEnvVar(
+      'AUDIO_QUALITY_PRESETS',
+      JSON.stringify({
+        low: { bitrate: 96000, sampleRate: 44100, channels: 2 },
+        medium: { bitrate: 192000, sampleRate: 48000, channels: 2 },
+        high: { bitrate: 320000, sampleRate: 96000, channels: 2 },
+      })
+    )
+  ),
   effects: {
     reverb: {
-      enabled: getEnvVar('AUDIO_REVERB_ENABLED', 'true') === 'true',
-      presets: parseJSON(getEnvVar('AUDIO_REVERB_PRESETS', '{}'), {
-        room: { roomSize: 0.5, damping: 0.5, wetLevel: 0.33, dryLevel: 0.4 },
-        hall: { roomSize: 0.8, damping: 0.3, wetLevel: 0.3, dryLevel: 0.45 },
-        plate: { roomSize: 0.6, damping: 0.1, wetLevel: 0.3, dryLevel: 0.4 },
-      }),
+      enabled: getEnvVar('AUDIO_REVERB_ENABLED', 'false') === 'true',
+      presets: parseJSON(
+        getEnvVar(
+          'AUDIO_REVERB_PRESETS',
+          JSON.stringify({
+            room: { roomSize: 0.5, damping: 0.5, wetLevel: 0.33, dryLevel: 0.67 },
+            hall: { roomSize: 0.8, damping: 0.3, wetLevel: 0.4, dryLevel: 0.6 },
+            plate: { roomSize: 0.6, damping: 0.7, wetLevel: 0.3, dryLevel: 0.7 },
+          })
+        )
+      ),
     },
     equalization: {
-      enabled: getEnvVar('AUDIO_EQ_ENABLED', 'true') === 'true',
-      bands: parseJSON(getEnvVar('AUDIO_EQ_BANDS', '[]'), [
-        { frequency: 100, gain: 0, q: 1 },
-        { frequency: 1000, gain: 0, q: 1 },
-        { frequency: 10000, gain: 0, q: 1 },
-      ]),
+      enabled: getEnvVar('AUDIO_EQ_ENABLED', 'false') === 'true',
+      bands: parseJSON(
+        getEnvVar(
+          'AUDIO_EQ_BANDS',
+          JSON.stringify([
+            { frequency: 100, gain: 0, q: 1 },
+            { frequency: 1000, gain: 0, q: 1 },
+            { frequency: 10000, gain: 0, q: 1 },
+          ])
+        )
+      ),
     },
   },
 });

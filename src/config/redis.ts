@@ -5,7 +5,7 @@ import * as joi from 'joi';
 
 config();
 
-export interface RedisConfigType {
+export interface IRedisConfigType {
   host: string;
   port: number;
   password: string;
@@ -29,7 +29,7 @@ const redisConfigSchema = joi.object({
   keyPrefix: joi.string().required(),
 });
 
-const redisConfig: RedisConfigType = {
+const redisConfig: IRedisConfigType = {
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379', 10),
   password: process.env.REDIS_PASSWORD || '',

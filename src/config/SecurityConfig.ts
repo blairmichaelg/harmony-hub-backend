@@ -1,101 +1,92 @@
 // SecurityConfig.ts
 
-import { config } from 'dotenv';
-import * as joi from 'joi';
+import { z } from 'zod';
 
-config();
+import { getEnvVariables } from '../utils/envUtils';
 
-export interface SecurityConfigType {
+const jwtSchema = z.object({
+  secret: z.string().min(32),
+  expiresIn: z.string(),
+});
+
+const bcryptSchema = z.object({
+  saltRounds: z.number().int().positive(),
+});
+
+const passwordStrengthSchema = z.object({
+  minLength: z.number().int().min(8),
+  requireUppercase: z.boolean(),
+  requireLowercase: z.boolean(),
+  requireNumbers: z.boolean(),
+  requireSpecialChars: z.boolean(),
+});
+
+const rateLimitingSchema = z.object({
+  enabled: z.boolean(),
+  maxRequests: z.number().int().positive(),
+  windowMs: z.number().int().positive(),
+});
+
+const corsSchema = z.object({
+  origin: z.union([z.string(), z.array(z.string())]),
+  methods: z.array(z.string()),
+});
+
+const helmetSchema = z.object({
+  contentSecurityPolicy: z.boolean(),
+  xssFilter: z.boolean(),
+});
+
+const securityConfigSchema = z.object({
+  jwt: jwtSchema,
+  bcrypt: bcryptSchema,
+  passwordStrength: passwordStrengthSchema,
+  rateLimiting: rateLimitingSchema,
+  cors: corsSchema,
+  helmet: helmetSchema,
+});
+
+type SecurityConfig = z.infer<typeof securityConfigSchema>;
+
+const env = getEnvVariables();
+
+const parseBoolean = (value: string | undefined, defaultValue: boolean): boolean =>
+  value ? value.toLowerCase() === 'true' : defaultValue;
+
+const securityConfig: SecurityConfig = securityConfigSchema.parse({
+  jwt: {
+    secret:
+      env.JWT_SECRET ||
+      (process.env.NODE_ENV === 'production'
+        ? undefined
+        : 'default-secret-key-for-development-only'),
+    expiresIn: env.JWT_EXPIRES_IN || '1d',
+  },
+  bcrypt: {
+    saltRounds: parseInt(env.BCRYPT_SALT_ROUNDS || '12', 10),
+  },
+  passwordStrength: {
+    minLength: parseInt(env.PASSWORD_MIN_LENGTH || '10', 10),
+    requireUppercase: parseBoolean(env.PASSWORD_REQUIRE_UPPERCASE, true),
+    requireLowercase: parseBoolean(env.PASSWORD_REQUIRE_LOWERCASE, true),
+    requireNumbers: parseBoolean(env.PASSWORD_REQUIRE_NUMBERS, true),
+    requireSpecialChars: parseBoolean(env.PASSWORD_REQUIRE_SPECIAL_CHARS, true),
+  },
+  rateLimiting: {
+    enabled: parseBoolean(env.RATE_LIMITING_ENABLED, true),
+    maxRequests: parseInt(env.RATE_LIMITING_MAX_REQUESTS || '100', 10),
+    windowMs: parseInt(env.RATE_LIMITING_WINDOW_MS || '900000', 10), // 15 minutes
+  },
   cors: {
-    allowedOrigins: string[];
-    allowedMethods: string[];
-    allowedHeaders: string[];
-    exposedHeaders: string[];
-    maxAge: number;
-    credentials: boolean;
-  };
-  rateLimit: {
-    windowMs: number;
-    max: number;
-  };
-  contentSecurityPolicy: {
-    directives: {
-      [key: string]: string[];
-    };
-  };
-  encryption: {
-    algorithm: string;
-    secretKey: string;
-    iv: string;
-  };
-}
-
-const securityConfigSchema = joi
-  .object({
-    cors: joi
-      .object({
-        allowedOrigins: joi.array().items(joi.string()).required(),
-        allowedMethods: joi.array().items(joi.string()).required(),
-        allowedHeaders: joi.array().items(joi.string()).required(),
-        exposedHeaders: joi.array().items(joi.string()).required(),
-        maxAge: joi.number().required(),
-        credentials: joi.boolean().required(),
-      })
-      .required(),
-    rateLimit: joi
-      .object({
-        windowMs: joi.number().required(),
-        max: joi.number().required(),
-      })
-      .required(),
-    contentSecurityPolicy: joi
-      .object({
-        directives: joi.object().pattern(joi.string(), joi.array().items(joi.string())).required(),
-      })
-      .required(),
-    encryption: joi
-      .object({
-        algorithm: joi.string().required(),
-        secretKey: joi.string().required(),
-        iv: joi.string().required(),
-      })
-      .required(),
-  })
-  .required();
-
-const securityConfig: SecurityConfigType = {
-  cors: {
-    allowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || '').split(','),
-    allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Content-Length', 'X-Request-Id'],
-    maxAge: 86400,
-    credentials: true,
+    origin: env.CORS_ORIGIN ? env.CORS_ORIGIN.split(',') : '*',
+    methods: env.CORS_METHODS
+      ? env.CORS_METHODS.split(',')
+      : ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   },
-  rateLimit: {
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
+  helmet: {
+    contentSecurityPolicy: parseBoolean(env.HELMET_CONTENT_SECURITY_POLICY, true),
+    xssFilter: parseBoolean(env.HELMET_XSS_FILTER, true),
   },
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://api.harmonyhub.com'],
-    },
-  },
-  encryption: {
-    algorithm: 'aes-256-cbc',
-    secretKey: process.env.ENCRYPTION_SECRET_KEY || '',
-    iv: process.env.ENCRYPTION_IV || '',
-  },
-};
+});
 
-const { error } = securityConfigSchema.validate(securityConfig);
-
-if (error) {
-  throw new Error(`Security Configuration Error: ${error.message}`);
-}
-
-export default securityConfig;
+export { securityConfig, SecurityConfig };

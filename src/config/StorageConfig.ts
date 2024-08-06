@@ -1,3 +1,5 @@
+// src/config/StorageConfig.ts
+
 import { z } from 'zod';
 
 const getEnvVar = (key: string, defaultValue?: string): string => {
@@ -47,35 +49,37 @@ const storageConfigSchema = z.object({
 
 type StorageConfig = z.infer<typeof storageConfigSchema>;
 
+const getStorageProvider = (): z.infer<typeof storageProviderSchema> => {
+  const type = getEnvVar('STORAGE_TYPE', 'local') as 'local' | 's3' | 'gcs';
+
+  switch (type) {
+    case 's3':
+      return {
+        type,
+        bucket: getEnvVar('S3_BUCKET'),
+        region: getEnvVar('S3_REGION'),
+        accessKeyId: getEnvVar('S3_ACCESS_KEY_ID'),
+        secretAccessKey: getEnvVar('S3_SECRET_ACCESS_KEY'),
+      };
+    case 'gcs':
+      return {
+        type,
+        bucket: getEnvVar('GCS_BUCKET'),
+        projectId: getEnvVar('GCS_PROJECT_ID'),
+        clientEmail: getEnvVar('GCS_CLIENT_EMAIL'),
+        privateKey: getEnvVar('GCS_PRIVATE_KEY'),
+      };
+    default:
+      return {
+        type: 'local',
+        basePath: getEnvVar('LOCAL_STORAGE_PATH', './uploads'),
+      };
+  }
+};
+
 const storageConfig: Readonly<StorageConfig> = Object.freeze(
   storageConfigSchema.parse({
-    provider: (() => {
-      const type = getEnvVar('STORAGE_TYPE', 'local') as 'local' | 's3' | 'gcs';
-
-      switch (type) {
-        case 's3':
-          return {
-            type,
-            bucket: getEnvVar('S3_BUCKET'),
-            region: getEnvVar('S3_REGION'),
-            accessKeyId: getEnvVar('S3_ACCESS_KEY_ID'),
-            secretAccessKey: getEnvVar('S3_SECRET_ACCESS_KEY'),
-          };
-        case 'gcs':
-          return {
-            type,
-            bucket: getEnvVar('GCS_BUCKET'),
-            projectId: getEnvVar('GCS_PROJECT_ID'),
-            clientEmail: getEnvVar('GCS_CLIENT_EMAIL'),
-            privateKey: getEnvVar('GCS_PRIVATE_KEY'),
-          };
-        default:
-          return {
-            type: 'local',
-            basePath: getEnvVar('LOCAL_STORAGE_PATH', './uploads'),
-          };
-      }
-    })(),
+    provider: getStorageProvider(),
     uploadLimits: {
       maxFileSize: parseInt(getEnvVar('MAX_FILE_SIZE', '5242880'), 10), // 5MB default
       allowedMimeTypes: getEnvVar('ALLOWED_MIME_TYPES', 'image/*,application/pdf').split(','),

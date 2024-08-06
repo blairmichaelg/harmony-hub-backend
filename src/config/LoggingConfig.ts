@@ -1,81 +1,97 @@
+// LoggingConfig.ts
+
 import { z } from 'zod';
 
-const getEnvVar = (key: string, defaultValue?: string): string => {
-  const value = process.env[key] || defaultValue;
+import { getEnvVariables } from '../utils/envUtils';
 
-  if (value === undefined) {
-    throw new Error(`Environment variable ${key} is not set`);
-  }
+const logLevelEnum = z.enum(['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly']);
 
-  return value;
-};
-
-const logLevelSchema = z.enum(['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly']);
-
-const getLogLevel = (
-  envVar: string,
-  defaultLevel: z.infer<typeof logLevelSchema>
-): z.infer<typeof logLevelSchema> => {
-  const level = getEnvVar(envVar, defaultLevel);
-
-  if (!logLevelSchema.safeParse(level).success) {
-    console.warn(`Invalid log level "${level}" for ${envVar}, using default "${defaultLevel}"`);
-
-    return defaultLevel;
-  }
-
-  return level as z.infer<typeof logLevelSchema>;
-};
-
-const customTransportSchema = z.object({
-  name: z.string(),
-  options: z.record(z.unknown()),
+const loggerConfigSchema = z.object({
+  level: logLevelEnum,
+  format: z.enum(['json', 'simple', 'colorized']),
+  timestamp: z.boolean(),
 });
 
-const fileTransportSchema = z.object({
-  enabled: z.boolean(),
-  level: logLevelSchema,
+const fileLoggerConfigSchema = loggerConfigSchema.extend({
   filename: z.string(),
-  maxsize: z.number(),
-  maxFiles: z.number(),
-  compress: z.boolean().default(false),
+  maxsize: z.number().int().positive(),
+  maxFiles: z.number().int().positive(),
+});
+
+const anonymizationConfigSchema = z.object({
+  enabled: z.boolean(),
+  fields: z.array(z.string()),
+});
+
+const rotationConfigSchema = z.object({
+  enabled: z.boolean(),
+  frequency: z.enum(['daily', 'weekly', 'monthly']),
+  maxRetentionPeriod: z.number().int().positive(),
 });
 
 const loggingConfigSchema = z.object({
-  default: z.object({
-    level: logLevelSchema,
-    format: z.enum(['json', 'simple', 'colorized']),
-  }),
-  console: z.object({
-    enabled: z.boolean(),
-    level: logLevelSchema,
-  }),
-  file: fileTransportSchema,
-  customTransports: z.array(customTransportSchema).optional(),
+  console: loggerConfigSchema,
+  file: fileLoggerConfigSchema,
+  anonymization: anonymizationConfigSchema,
+  rotation: rotationConfigSchema,
 });
 
 type LoggingConfig = z.infer<typeof loggingConfigSchema>;
 
-const loggingConfig: Readonly<LoggingConfig> = Object.freeze(
-  loggingConfigSchema.parse({
-    default: {
-      level: getLogLevel('LOG_LEVEL', 'info'),
-      format: getEnvVar('LOG_FORMAT', 'json') as 'json' | 'simple' | 'colorized',
-    },
-    console: {
-      enabled: getEnvVar('LOG_CONSOLE_ENABLED', 'true') === 'true',
-      level: getLogLevel('LOG_CONSOLE_LEVEL', getLogLevel('LOG_LEVEL', 'info')),
-    },
-    file: {
-      enabled: getEnvVar('LOG_FILE_ENABLED', 'false') === 'true',
-      level: getLogLevel('LOG_FILE_LEVEL', getLogLevel('LOG_LEVEL', 'info')),
-      filename: getEnvVar('LOG_FILE_FILENAME', 'app.log'),
-      maxsize: parseInt(getEnvVar('LOG_FILE_MAX_SIZE', '10485760'), 10), // 10MB default
-      maxFiles: parseInt(getEnvVar('LOG_FILE_MAX_FILES', '5'), 10),
-      compress: getEnvVar('LOG_FILE_COMPRESS', 'false') === 'true',
-    },
-    customTransports: JSON.parse(getEnvVar('CUSTOM_LOG_TRANSPORTS', '[]')),
-  })
-);
+const env = getEnvVariables();
+
+const parseBoolean = (value: string | undefined, defaultValue: boolean): boolean =>
+  value ? value.toLowerCase() === 'true' : defaultValue;
+
+const getLogLevel = (level: string | undefined): z.infer<typeof logLevelEnum> => {
+  if (logLevelEnum.safeParse(level).success) {
+    return level as z.infer<typeof logLevelEnum>;
+  }
+
+  return 'info';
+};
+
+const getLogFormat = (format: string | undefined): 'json' | 'simple' | 'colorized' => {
+  if (format === 'json' || format === 'simple' || format === 'colorized') {
+    return format;
+  }
+
+  return 'colorized';
+};
+
+const getRotationFrequency = (frequency: string | undefined): 'daily' | 'weekly' | 'monthly' => {
+  if (frequency === 'daily' || frequency === 'weekly' || frequency === 'monthly') {
+    return frequency;
+  }
+
+  return 'daily';
+};
+
+const loggingConfig: LoggingConfig = loggingConfigSchema.parse({
+  console: {
+    level: getLogLevel(env.LOGGING_CONSOLE_LEVEL),
+    format: getLogFormat(env.LOGGING_CONSOLE_FORMAT),
+    timestamp: parseBoolean(env.LOGGING_CONSOLE_TIMESTAMP, true),
+  },
+  file: {
+    level: getLogLevel(env.LOGGING_FILE_LEVEL),
+    format: getLogFormat(env.LOGGING_FILE_FORMAT),
+    timestamp: parseBoolean(env.LOGGING_FILE_TIMESTAMP, true),
+    filename: env.LOGGING_FILE_FILENAME || 'app.log',
+    maxsize: parseInt(env.LOGGING_FILE_MAXSIZE || '10485760', 10), // 10MB
+    maxFiles: parseInt(env.LOGGING_FILE_MAXFILES || '5', 10),
+  },
+  anonymization: {
+    enabled: parseBoolean(env.LOGGING_ANONYMIZATION_ENABLED, false),
+    fields: env.LOGGING_ANONYMIZATION_FIELDS
+      ? env.LOGGING_ANONYMIZATION_FIELDS.split(',')
+      : ['email', 'password', 'creditCard'],
+  },
+  rotation: {
+    enabled: parseBoolean(env.LOGGING_ROTATION_ENABLED, true),
+    frequency: getRotationFrequency(env.LOGGING_ROTATION_FREQUENCY),
+    maxRetentionPeriod: parseInt(env.LOGGING_ROTATION_MAX_RETENTION_PERIOD || '30', 10), // days
+  },
+});
 
 export { loggingConfig, LoggingConfig };
