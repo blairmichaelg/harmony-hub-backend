@@ -1,44 +1,70 @@
 // src/config/EnvironmentConfig.ts
 
-import fs from 'fs';
-import path from 'path';
-
-import dotenv from 'dotenv';
 import { z } from 'zod';
 
-dotenv.config();
+import { getEnvVar } from '../utils/envUtils';
 
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().int().positive().default(3000),
-  LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly']).default('info'),
-  DATABASE_URL: z.string().url(),
-  REDIS_URL: z.string().url().optional(),
-  JWT_SECRET: z.string().min(32),
-  AWS_ACCESS_KEY_ID: z.string().optional(),
-  AWS_SECRET_ACCESS_KEY: z.string().optional(),
-  AWS_REGION: z.string().optional(),
+/**
+ * Schema for environment configuration
+ * @remarks
+ * This schema defines the structure and validation rules for the environment configuration.
+ */
+export const EnvConfigSchema = z.object({
+  nodeEnv: z
+    .enum(['development', 'production', 'test'])
+    .default('development')
+    .describe('Node environment'),
+  port: z.coerce.number().int().positive().default(3000).describe('Server port'),
+  logLevel: z
+    .enum(['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'])
+    .default('info')
+    .describe('Logging level'),
+  databaseUrl: z.string().url().describe('Database connection URL'),
+  redisUrl: z.string().url().optional().describe('Redis connection URL'),
+  jwtSecret: z.string().min(32).describe('JWT secret key'),
+  aws: z
+    .object({
+      accessKeyId: z.string().optional().describe('AWS access key ID'),
+      secretAccessKey: z.string().optional().describe('AWS secret access key'),
+      region: z.string().optional().describe('AWS region'),
+    })
+    .describe('AWS configuration'),
 });
 
-type EnvConfig = z.infer<typeof envSchema>;
+/**
+ * Type definition for environment configuration
+ */
+export type EnvConfig = z.infer<typeof EnvConfigSchema>;
 
-const loadEnvConfig = (): EnvConfig => {
-  const envFile = path.resolve(process.cwd(), `.env.${process.env.NODE_ENV || 'development'}`);
+/**
+ * Environment configuration object
+ * @remarks
+ * This object contains the parsed and validated environment configuration.
+ */
+export const envConfig: EnvConfig = EnvConfigSchema.parse({
+  nodeEnv: getEnvVar('NODE_ENV', 'development'),
+  port: getEnvVar('PORT', '3000'),
+  logLevel: getEnvVar('LOG_LEVEL', 'info'),
+  databaseUrl: getEnvVar('DATABASE_URL'),
+  redisUrl: getEnvVar('REDIS_URL'),
+  jwtSecret: getEnvVar('JWT_SECRET'),
+  aws: {
+    accessKeyId: getEnvVar('AWS_ACCESS_KEY_ID'),
+    secretAccessKey: getEnvVar('AWS_SECRET_ACCESS_KEY'),
+    region: getEnvVar('AWS_REGION'),
+  },
+});
 
-  if (fs.existsSync(envFile)) {
-    const envConfig = dotenv.parse(fs.readFileSync(envFile));
-
-    Object.assign(process.env, envConfig);
+// Validate the configuration
+try {
+  EnvConfigSchema.parse(envConfig);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('Environment configuration validation failed:');
+    error.errors.forEach((err) => {
+      console.error(`- ${err.path.join('.')}: ${err.message}`);
+    });
+    throw new Error('Invalid environment configuration');
   }
-
-  try {
-    return envSchema.parse(process.env);
-  } catch (error) {
-    console.error('Environment configuration error:', error);
-    process.exit(1);
-  }
-};
-
-const envConfig: Readonly<EnvConfig> = Object.freeze(loadEnvConfig());
-
-export default envConfig;
+  throw error;
+}

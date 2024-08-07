@@ -1,69 +1,106 @@
-// AuthConfig.ts
+// src/config/AuthConfig.ts
 
 import { z } from 'zod';
 
-import { getEnvVar, parseJSON } from './utils';
+import { getEnvVar, parseJSON } from '../utils/envUtils';
 
-const jwtConfigSchema = z.object({
-  secret: z.string().min(32),
-  expiresIn: z.string(),
-  algorithm: z.enum(['HS256', 'HS384', 'HS512', 'RS256', 'RS384', 'RS512']),
+/**
+ * Schema for JWT configuration
+ * @remarks
+ * Defines the structure and validation rules for JWT settings.
+ */
+const JWTConfigSchema = z.object({
+  secret: z.string().min(32).describe('JWT secret key, must be at least 32 characters long'),
+  expiresIn: z.string().describe('JWT expiration time'),
+  algorithm: z
+    .enum(['HS256', 'HS384', 'HS512', 'RS256', 'RS384', 'RS512'])
+    .describe('JWT signing algorithm'),
 });
 
-const oauthProviderSchema = z.object({
-  clientId: z.string(),
-  clientSecret: z.string(),
-  callbackURL: z.string().url(),
-  scope: z.array(z.string()).optional(),
+/**
+ * Schema for OAuth provider configuration
+ * @remarks
+ * Defines the structure and validation rules for OAuth providers.
+ */
+const OAuthProviderSchema = z.object({
+  clientId: z.string().min(1).describe('OAuth client ID'),
+  clientSecret: z.string().min(1).describe('OAuth client secret'),
+  callbackURL: z.string().url().describe('OAuth callback URL'),
+  scope: z.array(z.string()).default([]).describe('OAuth scopes'),
 });
 
-const authConfigSchema = z.object({
-  jwt: jwtConfigSchema,
-  passwordHashing: z.object({
-    saltRounds: z.number().int().positive(),
-    pepper: z.string().optional(),
-  }),
-  sessionConfig: z.object({
-    secret: z.string().min(32),
-    resave: z.boolean(),
-    saveUninitialized: z.boolean(),
-    cookie: z.object({
-      secure: z.boolean(),
-      maxAge: z.number().int().positive(),
+/**
+ * Schema for the entire authentication configuration
+ * @remarks
+ * This schema defines the structure and validation rules for the authentication configuration.
+ */
+export const AuthConfigSchema = z
+  .object({
+    jwt: JWTConfigSchema,
+    passwordHashing: z.object({
+      saltRounds: z.coerce
+        .number()
+        .int()
+        .positive()
+        .describe('Number of salt rounds for password hashing'),
+      pepper: z.string().optional().describe('Optional pepper for password hashing'),
     }),
-  }),
-  rateLimiting: z.object({
-    windowMs: z.number().int().positive(),
-    max: z.number().int().positive(),
-  }),
-  oauth: z.object({
-    google: oauthProviderSchema.optional(),
-    facebook: oauthProviderSchema.optional(),
-    github: oauthProviderSchema.optional(),
-  }),
-  twoFactor: z.object({
-    enabled: z.boolean(),
-    issuer: z.string(),
-  }),
-});
+    sessionConfig: z.object({
+      secret: z.string().min(32).describe('Session secret, must be at least 32 characters long'),
+      resave: z.boolean().describe('Whether to resave unchanged sessions'),
+      saveUninitialized: z.boolean().describe('Whether to save uninitialized sessions'),
+      cookie: z.object({
+        secure: z.boolean().describe('Whether to use secure cookies'),
+        maxAge: z.coerce
+          .number()
+          .int()
+          .positive()
+          .describe('Maximum age of the session cookie in milliseconds'),
+      }),
+    }),
+    rateLimiting: z.object({
+      windowMs: z.coerce.number().int().positive().describe('Rate limiting window in milliseconds'),
+      max: z.coerce
+        .number()
+        .int()
+        .positive()
+        .describe('Maximum number of requests within the rate limiting window'),
+    }),
+    oauth: z.object({
+      google: OAuthProviderSchema.optional().describe('Google OAuth configuration'),
+      facebook: OAuthProviderSchema.optional().describe('Facebook OAuth configuration'),
+      github: OAuthProviderSchema.optional().describe('GitHub OAuth configuration'),
+    }),
+    twoFactor: z.object({
+      enabled: z.boolean().describe('Whether two-factor authentication is enabled'),
+      issuer: z.string().describe('Issuer name for two-factor authentication'),
+    }),
+  })
+  .refine((data) => !data.twoFactor.enabled || Object.values(data.oauth).some(Boolean), {
+    message:
+      'When two-factor authentication is enabled, at least one OAuth provider must be configured',
+    path: ['twoFactor'],
+  });
 
-type AuthConfig = z.infer<typeof authConfigSchema>;
+/**
+ * Type definition for the authentication configuration
+ */
+export type AuthConfig = z.infer<typeof AuthConfigSchema>;
 
-const authConfig: AuthConfig = authConfigSchema.parse({
+/**
+ * The authentication configuration object
+ * @remarks
+ * This object contains all the authentication-related settings and is validated against AuthConfigSchema.
+ */
+export const authConfig: AuthConfig = AuthConfigSchema.parse({
   jwt: {
     secret: getEnvVar('JWT_SECRET'),
     expiresIn: getEnvVar('JWT_EXPIRES_IN', '1d'),
-    algorithm: getEnvVar('JWT_ALGORITHM', 'HS256') as
-      | 'HS256'
-      | 'HS384'
-      | 'HS512'
-      | 'RS256'
-      | 'RS384'
-      | 'RS512',
+    algorithm: getEnvVar('JWT_ALGORITHM', 'HS256'),
   },
   passwordHashing: {
-    saltRounds: parseInt(getEnvVar('PASSWORD_SALT_ROUNDS', '10'), 10),
-    pepper: getEnvVar('PASSWORD_PEPPER', undefined),
+    saltRounds: getEnvVar('PASSWORD_SALT_ROUNDS', '10'),
+    pepper: getEnvVar('PASSWORD_PEPPER'),
   },
   sessionConfig: {
     secret: getEnvVar('SESSION_SECRET'),
@@ -71,12 +108,12 @@ const authConfig: AuthConfig = authConfigSchema.parse({
     saveUninitialized: getEnvVar('SESSION_SAVE_UNINITIALIZED', 'false') === 'true',
     cookie: {
       secure: getEnvVar('SESSION_COOKIE_SECURE', 'true') === 'true',
-      maxAge: parseInt(getEnvVar('SESSION_COOKIE_MAX_AGE', '86400000'), 10), // 24 hours in milliseconds
+      maxAge: Number(getEnvVar('SESSION_COOKIE_MAX_AGE', '86400000')),
     },
   },
   rateLimiting: {
-    windowMs: parseInt(getEnvVar('RATE_LIMIT_WINDOW_MS', '900000'), 10), // 15 minutes
-    max: parseInt(getEnvVar('RATE_LIMIT_MAX', '100'), 10),
+    windowMs: Number(getEnvVar('RATE_LIMIT_WINDOW_MS', '900000')),
+    max: Number(getEnvVar('RATE_LIMIT_MAX', '100')),
   },
   oauth: {
     google: getEnvVar('GOOGLE_CLIENT_ID')
@@ -110,4 +147,16 @@ const authConfig: AuthConfig = authConfigSchema.parse({
   },
 });
 
-export { authConfig, AuthConfig };
+// Validate the configuration
+try {
+  AuthConfigSchema.parse(authConfig);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('Authentication configuration validation failed:');
+    error.errors.forEach((err) => {
+      console.error(`- ${err.path.join('.')}: ${err.message}`);
+    });
+    throw new Error('Invalid authentication configuration');
+  }
+  throw error;
+}

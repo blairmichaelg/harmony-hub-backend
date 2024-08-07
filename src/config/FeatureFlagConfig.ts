@@ -1,56 +1,74 @@
 // src/config/FeatureFlagConfig.ts
 
-import { config } from 'dotenv';
-import * as joi from 'joi';
+import { z } from 'zod';
 
-config();
+import { getEnvVar } from '../utils/envUtils';
 
-interface IFeatureFlag {
-  name: string;
-  enabled: boolean;
-  rolloutPercentage?: number;
-  userSegments?: string[];
-}
-
-interface IABTest {
-  name: string;
-  variants: string[];
-  distribution: number[];
-}
-
-export interface IFeatureFlagConfig {
-  featureFlags: IFeatureFlag[];
-  abTests: IABTest[];
-}
-
-const featureFlagSchema = joi.object({
-  name: joi.string().required(),
-  enabled: joi.boolean().required(),
-  rolloutPercentage: joi.number().min(0).max(100).optional(),
-  userSegments: joi.array().items(joi.string()).optional(),
+/**
+ * Schema for individual feature flag
+ */
+const FeatureFlagSchema = z.object({
+  name: z.string().describe('Name of the feature flag'),
+  enabled: z.coerce.boolean().default(false).describe('Whether the feature flag is enabled'),
+  rolloutPercentage: z.coerce
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe('Percentage of users for gradual rollout'),
+  userSegments: z.array(z.string()).optional().describe('User segments for targeted rollout'),
 });
 
-const abTestSchema = joi.object({
-  name: joi.string().required(),
-  variants: joi.array().items(joi.string()).min(2).required(),
-  distribution: joi.array().items(joi.number().min(0).max(100)).required(),
+/**
+ * Schema for A/B test
+ */
+const ABTestSchema = z
+  .object({
+    name: z.string().describe('Name of the A/B test'),
+    variants: z.array(z.string()).min(2).describe('Variants for the A/B test'),
+    distribution: z
+      .array(z.coerce.number().min(0).max(100))
+      .describe('Distribution percentages for variants'),
+  })
+  .refine((data) => data.variants.length === data.distribution.length, {
+    message: 'Number of variants must match the number of distribution percentages',
+  })
+  .refine((data) => data.distribution.reduce((sum, value) => sum + value, 0) === 100, {
+    message: 'Distribution percentages must sum to 100',
+  });
+
+/**
+ * Schema for feature flag configuration
+ * @remarks
+ * This schema defines the structure and validation rules for the feature flag configuration.
+ */
+export const FeatureFlagConfigSchema = z.object({
+  featureFlags: z.array(FeatureFlagSchema).describe('List of feature flags'),
+  abTests: z.array(ABTestSchema).describe('List of A/B tests'),
 });
 
-const featureFlagConfigSchema = joi.object({
-  featureFlags: joi.array().items(featureFlagSchema).required(),
-  abTests: joi.array().items(abTestSchema).required(),
-});
+/**
+ * Type definitions
+ */
+export type FeatureFlag = z.infer<typeof FeatureFlagSchema>;
+export type ABTest = z.infer<typeof ABTestSchema>;
+export type FeatureFlagConfig = z.infer<typeof FeatureFlagConfigSchema>;
 
-const featureFlagConfig: IFeatureFlagConfig = {
+/**
+ * Feature flag configuration object
+ * @remarks
+ * This object contains the parsed and validated feature flag configuration.
+ */
+export const featureFlagConfig: FeatureFlagConfig = FeatureFlagConfigSchema.parse({
   featureFlags: [
     {
       name: 'advancedAudioProcessing',
-      enabled: process.env.FEATURE_ADVANCED_AUDIO_PROCESSING === 'true',
+      enabled: getEnvVar('FEATURE_ADVANCED_AUDIO_PROCESSING', 'false'),
       rolloutPercentage: 50,
     },
     {
       name: 'collaborativeEditing',
-      enabled: process.env.FEATURE_COLLABORATIVE_EDITING === 'true',
+      enabled: getEnvVar('FEATURE_COLLABORATIVE_EDITING', 'false'),
       userSegments: ['premium', 'beta'],
     },
   ],
@@ -61,12 +79,20 @@ const featureFlagConfig: IFeatureFlagConfig = {
       distribution: [33, 33, 34],
     },
   ],
-};
+});
 
-const { error } = featureFlagConfigSchema.validate(featureFlagConfig);
-
-if (error) {
-  throw new Error(`Feature Flag Configuration Error: ${error.message}`);
+// Validate the configuration
+try {
+  FeatureFlagConfigSchema.parse(featureFlagConfig);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('Feature flag configuration validation failed:');
+    error.errors.forEach((err) => {
+      console.error(`- ${err.path.join('.')}: ${err.message}`);
+    });
+    throw new Error('Invalid feature flag configuration');
+  }
+  throw error;
 }
 
 export default featureFlagConfig;

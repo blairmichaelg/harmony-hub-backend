@@ -1,0 +1,104 @@
+Certainly! Here's a comprehensive list of consistencies that should be maintained across all configuration files, using the best practices:
+
+1. Imports:
+   - Import Zod: `import { z } from 'zod';`
+   - Import utility functions from a shared file: `import { getEnvVar, parseJSON } from '../utils/envUtils';`
+
+2. Schema Definition:
+   - Use PascalCase for schema names, ending with "Schema": `export const ConfigNameSchema = z.object({...});`
+   - Use Zod's `z.object()` for defining schemas
+   - Utilize Zod's built-in validators and transformers (e.g., `z.coerce.number()`, `z.string().url()`)
+   - Add `.describe()` to each field for documentation
+
+3. Type Definition:
+   - Export a type derived from the schema: `export type ConfigName = z.infer<typeof ConfigNameSchema>;`
+
+4. Configuration Object:
+   - Use camelCase for config object names: `export const configName: ConfigName = ConfigNameSchema.parse({...});`
+   - Parse environment variables within the configuration object
+
+5. Environment Variable Handling:
+   - Use `getEnvVar` function for all environment variable access
+   - Provide default values where appropriate: `getEnvVar('VAR_NAME', 'default_value')`
+   - Use `z.coerce.number()` for number parsing instead of manual `parseInt`
+
+6. Refinements and Custom Validation:
+   - Use Zod's `.refine()` method for complex validations that can't be expressed with basic Zod validators
+
+7. Error Handling:
+   - Implement try-catch block for schema parsing
+   - Log detailed error messages for Zod validation failures
+   - Throw a custom error after logging validation failures
+
+8. Comments and Documentation:
+   - Use JSDoc style comments for schemas, types, and exported constants
+   - Provide detailed descriptions for each configuration option
+
+9. Default Values:
+   - Provide sensible default values for optional configuration parameters
+
+10. File Structure:
+    - Start with a file-level comment describing the purpose of the configuration
+    - Order: imports, schema definition, type definition, configuration object, error handling
+
+11. Naming Conventions:
+    - Use singular nouns for configuration object names (e.g., `databaseConfig`, not `databasesConfig`)
+
+12. Extensibility:
+    - Design schemas to be easily extensible for future additions
+
+Here's a template that incorporates these consistencies:
+
+```typescript
+// src/config/SampleConfig.ts
+
+import { z } from 'zod';
+import { getEnvVar, parseJSON } from '../utils/envUtils';
+
+/**
+ * Schema for sample configuration
+ * @remarks
+ * This schema defines the structure and validation rules for the sample configuration.
+ */
+export const SampleConfigSchema = z.object({
+  featureName: z.string().describe('Name of the feature'),
+  isEnabled: z.coerce.boolean().default(false).describe('Whether the feature is enabled'),
+  maxItems: z.coerce.number().int().positive().default(10).describe('Maximum number of items'),
+  apiUrl: z.string().url().describe('API endpoint URL'),
+  secretKey: z.string().min(32).describe('Secret key for API authentication'),
+});
+
+/**
+ * Type definition for sample configuration
+ */
+export type SampleConfig = z.infer<typeof SampleConfigSchema>;
+
+/**
+ * Sample configuration object
+ * @remarks
+ * This object contains the parsed and validated sample configuration.
+ */
+export const sampleConfig: SampleConfig = SampleConfigSchema.parse({
+  featureName: getEnvVar('FEATURE_NAME', 'defaultFeature'),
+  isEnabled: getEnvVar('FEATURE_ENABLED', 'false'),
+  maxItems: getEnvVar('MAX_ITEMS', '10'),
+  apiUrl: getEnvVar('API_URL'),
+  secretKey: getEnvVar('SECRET_KEY'),
+});
+
+// Validate the configuration
+try {
+  SampleConfigSchema.parse(sampleConfig);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('Sample configuration validation failed:');
+    error.errors.forEach((err) => {
+      console.error(`- ${err.path.join('.')}: ${err.message}`);
+    });
+    throw new Error('Invalid sample configuration');
+  }
+  throw error;
+}
+```
+
+This template and the list of consistencies should be applied across all configuration files to ensure uniformity and maintainability in your project.

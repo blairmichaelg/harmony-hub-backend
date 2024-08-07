@@ -1,98 +1,119 @@
-// PerformanceConfig.ts
+// src/config/PerformanceConfig.ts
 
 import { cpus } from 'os';
 
 import { z } from 'zod';
 
-import { getEnvVariables } from '../utils/envUtils';
+import { getEnvVar } from '../utils/envUtils';
 
-const cachingConfigSchema = z.object({
-  enabled: z.boolean(),
-  type: z.enum(['memory', 'redis']),
-  ttl: z.number().int().nonnegative(),
-  maxItems: z.number().int().positive(),
+/**
+ * Schema for caching configuration
+ */
+const CachingConfigSchema = z.object({
+  enabled: z.coerce.boolean().describe('Enable caching'),
+  type: z.enum(['memory', 'redis']).describe('Caching type'),
+  ttl: z.coerce.number().int().nonnegative().describe('Time-to-live for cached items in seconds'),
+  maxItems: z.coerce.number().int().positive().describe('Maximum number of items to cache'),
 });
 
-const compressionConfigSchema = z.object({
-  enabled: z.boolean(),
-  level: z.number().int().min(0).max(9),
-  threshold: z.number().int().positive(),
+/**
+ * Schema for compression configuration
+ */
+const CompressionConfigSchema = z.object({
+  enabled: z.coerce.boolean().describe('Enable compression'),
+  level: z.coerce.number().int().min(0).max(9).describe('Compression level (0-9)'),
+  threshold: z.coerce.number().int().positive().describe('Compression threshold in bytes'),
 });
 
-const clusteringConfigSchema = z.object({
-  enabled: z.boolean(),
-  numWorkers: z.number().int().positive(),
+/**
+ * Schema for clustering configuration
+ */
+const ClusteringConfigSchema = z.object({
+  enabled: z.coerce.boolean().describe('Enable clustering'),
+  numWorkers: z.coerce.number().int().positive().describe('Number of worker processes'),
 });
 
-const loadBalancingConfigSchema = z.object({
-  enabled: z.boolean(),
-  strategy: z.enum(['round-robin', 'least-connections', 'ip-hash']),
+/**
+ * Schema for load balancing configuration
+ */
+const LoadBalancingConfigSchema = z.object({
+  enabled: z.coerce.boolean().describe('Enable load balancing'),
+  strategy: z
+    .enum(['round-robin', 'least-connections', 'ip-hash'])
+    .describe('Load balancing strategy'),
 });
 
-const cdnConfigSchema = z.object({
-  enabled: z.boolean(),
-  provider: z.string(),
-  domain: z.string().url().optional(),
+/**
+ * Schema for CDN configuration
+ */
+const CdnConfigSchema = z.object({
+  enabled: z.coerce.boolean().describe('Enable CDN'),
+  provider: z.string().describe('CDN provider'),
+  domain: z.string().url().optional().describe('CDN domain URL'),
 });
 
-const performanceConfigSchema = z.object({
-  caching: cachingConfigSchema,
-  compression: compressionConfigSchema,
-  clustering: clusteringConfigSchema,
-  loadBalancing: loadBalancingConfigSchema,
-  cdn: cdnConfigSchema,
+/**
+ * Schema for performance configuration
+ * @remarks
+ * This schema defines the structure and validation rules for the performance configuration.
+ */
+export const PerformanceConfigSchema = z.object({
+  caching: CachingConfigSchema.describe('Caching configuration'),
+  compression: CompressionConfigSchema.describe('Compression configuration'),
+  clustering: ClusteringConfigSchema.describe('Clustering configuration'),
+  loadBalancing: LoadBalancingConfigSchema.describe('Load balancing configuration'),
+  cdn: CdnConfigSchema.describe('CDN configuration'),
 });
 
-type PerformanceConfig = z.infer<typeof performanceConfigSchema>;
+/**
+ * Type definition for performance configuration
+ */
+export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>;
 
-const env = getEnvVariables();
-
-const parseBoolean = (value: string | undefined, defaultValue: boolean): boolean =>
-  value ? value.toLowerCase() === 'true' : defaultValue;
-
-const getCachingType = (type: string | undefined): 'memory' | 'redis' => {
-  return type === 'memory' || type === 'redis' ? type : 'memory';
-};
-
-const getLoadBalancingStrategy = (
-  strategy: string | undefined
-): 'round-robin' | 'least-connections' | 'ip-hash' => {
-  return strategy === 'round-robin' || strategy === 'least-connections' || strategy === 'ip-hash'
-    ? strategy
-    : 'round-robin';
-};
-
-const getNumWorkers = (numWorkersStr: string | undefined): number => {
-  const parsedValue = parseInt(numWorkersStr || '0', 10);
-
-  return parsedValue > 0 ? parsedValue : cpus().length;
-};
-
-const performanceConfig: PerformanceConfig = performanceConfigSchema.parse({
+/**
+ * Performance configuration object
+ * @remarks
+ * This object contains the parsed and validated performance configuration.
+ */
+export const performanceConfig: PerformanceConfig = PerformanceConfigSchema.parse({
   caching: {
-    enabled: parseBoolean(env.PERF_CACHING_ENABLED, true),
-    type: getCachingType(env.PERF_CACHING_TYPE),
-    ttl: parseInt(env.PERF_CACHING_TTL || '3600', 10), // 1 hour
-    maxItems: parseInt(env.PERF_CACHING_MAX_ITEMS || '1000', 10),
+    enabled: getEnvVar('PERF_CACHING_ENABLED', 'true'),
+    type: getEnvVar('PERF_CACHING_TYPE', 'memory'),
+    ttl: getEnvVar('PERF_CACHING_TTL', '3600'), // 1 hour
+    maxItems: getEnvVar('PERF_CACHING_MAX_ITEMS', '1000'),
   },
   compression: {
-    enabled: parseBoolean(env.PERF_COMPRESSION_ENABLED, true),
-    level: parseInt(env.PERF_COMPRESSION_LEVEL || '6', 10),
-    threshold: parseInt(env.PERF_COMPRESSION_THRESHOLD || '1024', 10), // 1KB
+    enabled: getEnvVar('PERF_COMPRESSION_ENABLED', 'true'),
+    level: getEnvVar('PERF_COMPRESSION_LEVEL', '6'),
+    threshold: getEnvVar('PERF_COMPRESSION_THRESHOLD', '1024'), // 1KB
   },
   clustering: {
-    enabled: parseBoolean(env.PERF_CLUSTERING_ENABLED, false),
-    numWorkers: getNumWorkers(env.PERF_CLUSTERING_NUM_WORKERS),
+    enabled: getEnvVar('PERF_CLUSTERING_ENABLED', 'false'),
+    numWorkers: getEnvVar('PERF_CLUSTERING_NUM_WORKERS', cpus().length.toString()),
   },
   loadBalancing: {
-    enabled: parseBoolean(env.PERF_LOAD_BALANCING_ENABLED, false),
-    strategy: getLoadBalancingStrategy(env.PERF_LOAD_BALANCING_STRATEGY),
+    enabled: getEnvVar('PERF_LOAD_BALANCING_ENABLED', 'false'),
+    strategy: getEnvVar('PERF_LOAD_BALANCING_STRATEGY', 'round-robin'),
   },
   cdn: {
-    enabled: parseBoolean(env.PERF_CDN_ENABLED, false),
-    provider: env.PERF_CDN_PROVIDER || 'cloudflare',
-    domain: env.PERF_CDN_DOMAIN,
+    enabled: getEnvVar('PERF_CDN_ENABLED', 'false'),
+    provider: getEnvVar('PERF_CDN_PROVIDER', 'cloudflare'),
+    domain: getEnvVar('PERF_CDN_DOMAIN', ''),
   },
 });
 
-export { performanceConfig, PerformanceConfig };
+// Validate the configuration
+try {
+  PerformanceConfigSchema.parse(performanceConfig);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('Performance configuration validation failed:');
+    error.errors.forEach((err) => {
+      console.error(`- ${err.path.join('.')}: ${err.message}`);
+    });
+    throw new Error('Invalid performance configuration');
+  }
+  throw error;
+}
+
+export default performanceConfig;

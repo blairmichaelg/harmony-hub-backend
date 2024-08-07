@@ -1,142 +1,190 @@
-// AIServicesConfig.ts
+// src/config/AIServicesConfig.ts
 
 import { z } from 'zod';
 
-import { getEnvVariables } from '../utils/envUtils';
-import { parseJSON } from '../utils/jsonUtils';
+import { getEnvVar, parseJSON } from '../utils/envUtils';
 
-const aiModelSchema = z.object({
-  name: z.string(),
-  version: z.string(),
-  endpoint: z.string().url(),
-  apiKey: z.string(),
-  maxTokens: z.number().int().positive(),
-  temperature: z.number().min(0).max(1),
+/**
+ * Schema for AI model configuration
+ */
+const AIModelSchema = z.object({
+  name: z.string().nonempty().describe('Model name'),
+  version: z.string().nonempty().describe('Model version'),
+  endpoint: z.string().url().describe('Model API endpoint URL'),
+  apiKey: z.string().nonempty().describe('API key for the model'),
+  maxTokens: z.coerce.number().int().positive().describe('Maximum number of tokens'),
+  temperature: z.coerce.number().min(0).max(1).describe('Temperature for text generation'),
 });
 
-const jobQueueSchema = z.object({
-  type: z.enum(['redis', 'rabbitmq', 'sqs']),
-  url: z.string().url(),
-  maxConcurrency: z.number().int().positive(),
-  retryAttempts: z.number().int().nonnegative(),
-  retryDelay: z.number().int().nonnegative(),
+/**
+ * Schema for job queue configuration
+ */
+const JobQueueSchema = z.object({
+  type: z.enum(['redis', 'rabbitmq', 'sqs']).describe('Type of job queue'),
+  url: z.string().url().describe('Job queue URL'),
+  maxConcurrency: z.coerce.number().int().positive().describe('Maximum concurrent jobs'),
+  retryAttempts: z.coerce.number().int().nonnegative().describe('Number of retry attempts'),
+  retryDelay: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .describe('Delay between retries in milliseconds'),
 });
 
-const providerSchema = z.object({
-  apiKey: z.string(),
-  organization: z.string().optional(),
-  modelMapping: z.record(z.string()).optional(),
+/**
+ * Schema for AI provider configuration
+ */
+const ProviderSchema = z.object({
+  apiKey: z.string().nonempty().describe('API key for the provider'),
+  organization: z.string().optional().describe('Organization ID (if applicable)'),
+  modelMapping: z
+    .record(z.string())
+    .optional()
+    .describe('Mapping of model names to provider-specific names'),
 });
 
-const fineTuningSchema = z.object({
-  enabled: z.boolean(),
-  datasetPath: z.string(),
-  epochs: z.number().int().positive(),
-  learningRate: z.number().positive(),
-  batchSize: z.number().int().positive(),
-  validationSplit: z.number().min(0).max(1),
+/**
+ * Schema for fine-tuning configuration
+ */
+const FineTuningSchema = z
+  .object({
+    enabled: z.coerce.boolean().describe('Whether fine-tuning is enabled'),
+    datasetPath: z.string().nonempty().describe('Path to the fine-tuning dataset'),
+    epochs: z.coerce.number().int().positive().describe('Number of training epochs'),
+    learningRate: z.coerce.number().positive().describe('Learning rate for training'),
+    batchSize: z.coerce.number().int().positive().describe('Batch size for training'),
+    validationSplit: z.coerce
+      .number()
+      .min(0)
+      .max(1)
+      .describe('Fraction of data to use for validation'),
+  })
+  .refine((data) => !data.enabled || data.datasetPath.trim() !== '', {
+    message: 'Dataset path is required when fine-tuning is enabled',
+    path: ['datasetPath'],
+  });
+
+/**
+ * Schema for caching configuration
+ */
+const CachingSchema = z.object({
+  enabled: z.coerce.boolean().describe('Whether caching is enabled'),
+  ttl: z.coerce.number().int().nonnegative().describe('Time-to-live for cached items in seconds'),
+  maxSize: z.coerce.number().int().positive().describe('Maximum number of items in the cache'),
 });
 
-const cachingSchema = z.object({
-  enabled: z.boolean(),
-  ttl: z.number().int().nonnegative(),
-  maxSize: z.number().int().positive(),
-});
-
-const aiServicesConfigSchema = z.object({
-  defaultModel: z.string(),
-  models: z.record(aiModelSchema),
-  jobQueue: jobQueueSchema,
-  providers: z.object({
-    openai: providerSchema.optional(),
-    googleAI: providerSchema
-      .extend({
-        projectId: z.string(),
-        location: z.string().optional(),
+/**
+ * Schema for AI services configuration
+ */
+export const AIServicesConfigSchema = z
+  .object({
+    defaultModel: z.string().nonempty().describe('Default AI model to use'),
+    models: z.record(AIModelSchema).describe('Available AI models'),
+    jobQueue: JobQueueSchema.describe('Job queue configuration'),
+    providers: z
+      .object({
+        openai: ProviderSchema.optional().describe('OpenAI provider configuration'),
+        googleAI: ProviderSchema.extend({
+          projectId: z.string().nonempty().describe('Google Cloud project ID'),
+          location: z.string().optional().describe('Google Cloud location'),
+        })
+          .optional()
+          .describe('Google AI provider configuration'),
+        huggingface: ProviderSchema.extend({
+          modelEndpoint: z.string().url().describe('Hugging Face model endpoint URL'),
+        })
+          .optional()
+          .describe('Hugging Face provider configuration'),
       })
-      .optional(),
-    huggingface: providerSchema
-      .extend({
-        modelEndpoint: z.string().url(),
-      })
-      .optional(),
-  }),
-  fineTuning: fineTuningSchema,
-  caching: cachingSchema,
-});
+      .describe('AI provider configurations'),
+    fineTuning: FineTuningSchema.describe('Fine-tuning configuration'),
+    caching: CachingSchema.describe('Caching configuration'),
+  })
+  .refine((data) => data.defaultModel in data.models, {
+    message: 'Default model must be defined in the models object',
+    path: ['defaultModel'],
+  });
 
-type AIServicesConfig = z.infer<typeof aiServicesConfigSchema>;
+/**
+ * Type definition for AI services configuration
+ */
+export type AIServicesConfig = z.infer<typeof AIServicesConfigSchema>;
 
-const env = getEnvVariables();
-
-const parseBoolean = (value: string | undefined, defaultValue: boolean): boolean =>
-  value ? value.toLowerCase() === 'true' : defaultValue;
-
-const getJobQueueType = (type: string | undefined): 'redis' | 'rabbitmq' | 'sqs' => {
-  if (type === 'redis' || type === 'rabbitmq' || type === 'sqs') {
-    return type;
-  }
-
-  return 'redis';
-};
-
-const aiServicesConfig: AIServicesConfig = aiServicesConfigSchema.parse({
-  defaultModel: env.AI_DEFAULT_MODEL || 'gpt-3.5-turbo',
-  models: parseJSON(env.AI_MODELS, {
+/**
+ * AI services configuration object
+ * @remarks
+ * This object contains the parsed and validated AI services configuration.
+ */
+export const aiServicesConfig: AIServicesConfig = AIServicesConfigSchema.parse({
+  defaultModel: getEnvVar('AI_DEFAULT_MODEL', 'gpt-3.5-turbo'),
+  models: parseJSON(getEnvVar('AI_MODELS', '{}'), {
     'gpt-3.5-turbo': {
       name: 'GPT-3.5 Turbo',
       version: '1.0',
-      endpoint: env.GPT_35_TURBO_ENDPOINT || 'https://api.openai.com/v1/chat/completions',
-      apiKey: env.GPT_35_TURBO_API_KEY || '',
-      maxTokens: parseInt(env.GPT_35_TURBO_MAX_TOKENS || '2048', 10),
-      temperature: parseFloat(env.GPT_35_TURBO_TEMPERATURE || '0.7'),
+      endpoint: getEnvVar('GPT_35_TURBO_ENDPOINT', 'https://api.openai.com/v1/chat/completions'),
+      apiKey: getEnvVar('GPT_35_TURBO_API_KEY', ''),
+      maxTokens: getEnvVar('GPT_35_TURBO_MAX_TOKENS', '2048'),
+      temperature: getEnvVar('GPT_35_TURBO_TEMPERATURE', '0.7'),
+    },
+    'gpt-4': {
+      name: 'GPT-4',
+      version: '1.0',
+      endpoint: getEnvVar('GPT_4_ENDPOINT', 'https://api.openai.com/v1/chat/completions'),
+      apiKey: getEnvVar('GPT_4_API_KEY', ''),
+      maxTokens: getEnvVar('GPT_4_MAX_TOKENS', '8192'),
+      temperature: getEnvVar('GPT_4_TEMPERATURE', '0.7'),
     },
   }),
   jobQueue: {
-    type: getJobQueueType(env.AI_JOB_QUEUE_TYPE),
-    url: env.AI_JOB_QUEUE_URL || 'redis://localhost:6379',
-    maxConcurrency: parseInt(env.AI_JOB_QUEUE_MAX_CONCURRENCY || '5', 10),
-    retryAttempts: parseInt(env.AI_JOB_QUEUE_RETRY_ATTEMPTS || '3', 10),
-    retryDelay: parseInt(env.AI_JOB_QUEUE_RETRY_DELAY || '1000', 10),
+    type: getEnvVar('AI_JOB_QUEUE_TYPE', 'redis') as 'redis' | 'rabbitmq' | 'sqs',
+    url: getEnvVar('AI_JOB_QUEUE_URL', 'redis://localhost:6379'),
+    maxConcurrency: getEnvVar('AI_JOB_QUEUE_MAX_CONCURRENCY', '5'),
+    retryAttempts: getEnvVar('AI_JOB_QUEUE_RETRY_ATTEMPTS', '3'),
+    retryDelay: getEnvVar('AI_JOB_QUEUE_RETRY_DELAY', '1000'),
   },
   providers: {
-    openai: env.OPENAI_API_KEY
-      ? {
-          apiKey: env.OPENAI_API_KEY,
-          organization: env.OPENAI_ORGANIZATION,
-          modelMapping: parseJSON(env.OPENAI_MODEL_MAPPING, {}),
-        }
-      : undefined,
-    googleAI: env.GOOGLE_AI_API_KEY
-      ? {
-          apiKey: env.GOOGLE_AI_API_KEY,
-          projectId: env.GOOGLE_AI_PROJECT_ID || '',
-          location: env.GOOGLE_AI_LOCATION,
-          modelMapping: parseJSON(env.GOOGLE_AI_MODEL_MAPPING, {}),
-        }
-      : undefined,
-    huggingface: env.HUGGINGFACE_API_KEY
-      ? {
-          apiKey: env.HUGGINGFACE_API_KEY,
-          modelEndpoint:
-            env.HUGGINGFACE_MODEL_ENDPOINT || 'https://api-inference.huggingface.co/models/gpt2',
-          modelMapping: parseJSON(env.HUGGINGFACE_MODEL_MAPPING, {}),
-        }
-      : undefined,
+    openai: {
+      apiKey: getEnvVar('OPENAI_API_KEY', ''),
+      organization: getEnvVar('OPENAI_ORGANIZATION', ''),
+    },
+    googleAI: {
+      apiKey: getEnvVar('GOOGLE_AI_API_KEY', ''),
+      projectId: getEnvVar('GOOGLE_CLOUD_PROJECT_ID', ''),
+      location: getEnvVar('GOOGLE_CLOUD_LOCATION', 'us-central1'),
+    },
+    huggingface: {
+      apiKey: getEnvVar('HUGGINGFACE_API_KEY', ''),
+      modelEndpoint: getEnvVar(
+        'HUGGINGFACE_MODEL_ENDPOINT',
+        'https://api-inference.huggingface.co/models/gpt2'
+      ),
+    },
   },
   fineTuning: {
-    enabled: parseBoolean(env.AI_FINE_TUNING_ENABLED, false),
-    datasetPath: env.AI_FINE_TUNING_DATASET_PATH || './data/fine-tuning',
-    epochs: parseInt(env.AI_FINE_TUNING_EPOCHS || '3', 10),
-    learningRate: parseFloat(env.AI_FINE_TUNING_LEARNING_RATE || '0.00002'),
-    batchSize: parseInt(env.AI_FINE_TUNING_BATCH_SIZE || '4', 10),
-    validationSplit: parseFloat(env.AI_FINE_TUNING_VALIDATION_SPLIT || '0.2'),
+    enabled: getEnvVar('AI_FINE_TUNING_ENABLED', 'false'),
+    datasetPath: getEnvVar('AI_FINE_TUNING_DATASET_PATH', ''),
+    epochs: getEnvVar('AI_FINE_TUNING_EPOCHS', '3'),
+    learningRate: getEnvVar('AI_FINE_TUNING_LEARNING_RATE', '0.00002'),
+    batchSize: getEnvVar('AI_FINE_TUNING_BATCH_SIZE', '4'),
+    validationSplit: getEnvVar('AI_FINE_TUNING_VALIDATION_SPLIT', '0.2'),
   },
   caching: {
-    enabled: parseBoolean(env.AI_CACHING_ENABLED, true),
-    ttl: parseInt(env.AI_CACHING_TTL || '3600', 10), // 1 hour
-    maxSize: parseInt(env.AI_CACHING_MAX_SIZE || '1000', 10), // 1000 items
+    enabled: getEnvVar('AI_CACHING_ENABLED', 'true'),
+    ttl: getEnvVar('AI_CACHING_TTL', '3600'),
+    maxSize: getEnvVar('AI_CACHING_MAX_SIZE', '1000'),
   },
 });
 
-export { aiServicesConfig, AIServicesConfig };
+// Validate the configuration
+try {
+  AIServicesConfigSchema.parse(aiServicesConfig);
+} catch (error) {
+  if (error instanceof z.ZodError) {
+    console.error('AI services configuration validation failed:');
+    error.errors.forEach((err) => {
+      console.error(`- ${err.path.join('.')}: ${err.message}`);
+    });
+    throw new Error('Invalid AI services configuration');
+  }
+  throw error;
+}
