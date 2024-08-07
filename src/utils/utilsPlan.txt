@@ -1,0 +1,242 @@
+## utils/ Plan for HarmonyHub Backend
+
+This plan outlines the structure and functionality of the `utils/` module, emphasizing a configuration-driven approach and best practices.
+
+### Directory Structure:
+
+src/
+└── utils/
+├── audio/
+│ ├── index.ts
+│ ├── formats.ts
+│ ├── analysis.ts
+│ ├── effects.ts
+│ └── validation.ts
+├── string/
+│ ├── index.ts
+│ └── sanitize.ts
+├── validation/
+│ ├── index.ts
+│ └── audio.ts
+├── date.ts
+├── crypto.ts
+├── file.ts
+├── math.ts
+├── network.ts
+├── logging.ts
+├── performance.ts
+├── async.ts
+├── caching.ts
+└── i18n.ts
+
+
+### Components:
+
+#### a) `utils/audio/`
+
+*   **Objective:** Provide audio-specific utilities, deeply integrated with `AudioProcessingConfig`.
+
+*   **Sub-Modules:**
+
+    *   **`formats.ts`:**
+        *   `getSupportedAudioFormats()`: Returns supported audio formats from `audioProcessingConfig`.
+        *   `isAudioFormatSupported(extension: string)`: Checks if an extension is supported using `audioProcessingConfig`.
+        *   `getAudioFormatInfo(extension: string)`: Retrieves format details (MIME type, codec) from `audioProcessingConfig`.
+    *   **`analysis.ts`:**
+        *   `calculateRMS(audioBuffer: Float32Array)`: Calculates the Root Mean Square (RMS) of an audio buffer.
+        *   `generateWaveform(audioBuffer: Float32Array, width: number): number[]`: Generates a simplified waveform for visualization.
+        *   `extractAudioMetadata(filePath: string): Promise<AudioMetadata>`: Extracts audio metadata (using external libraries if necessary).
+    *   **`effects.ts`:**
+        *   `applyReverb(audioBuffer: Float32Array, settings: ReverbSettings): Promise<Float32Array>`: Applies reverb using validated `ReverbSettings`.
+        *   `applyEqualization(audioBuffer: Float32Array, bands: EQBand[]): Promise<Float32Array>`: Applies EQ using validated `EQBand` settings.
+    *   **`validation.ts`:**
+        *   `ReverbSettings`: Zod schema matching `audioProcessingConfig.effects.reverb.presets`.
+        *   `EQBand`: Zod schema matching `audioProcessingConfig.effects.equalization.bands`.
+
+#### b) `utils/string/`
+
+*   **Objective:** Handle string manipulation, sanitization, and validation.
+
+*   **Sub-Modules:**
+
+    *   **`sanitize.ts`:**
+        *   `sanitizeForSearch(str: string): string`: Prepares strings for search queries.
+        *   `sanitizeHTML(str: string): string`: Sanitizes HTML input to prevent XSS (consider using `DOMPurify`).
+        *   `anonymizeLogData(str: string, fields: string[]): string`: Anonymizes sensitive log data based on `LoggingConfig.anonymization`.
+
+#### c) `utils/validation/`
+
+*   **Objective:** Centralize data validation logic using Zod.
+
+*   **Sub-Modules:**
+
+    *   **`audio.ts`:** Contains Zod schemas for validating audio-related data.
+
+#### d) `utils/date.ts`
+
+*   **Objective:** Manage date/time operations using Luxon, integrated with relevant config settings.
+
+*   **Functions:**
+
+    *   `formatDateTime(date: DateTime, formatString: string): string`: Formats dates using Luxon.
+    *   `getUTCOffset(timezone: string): string`: Gets the UTC offset for a given timezone.
+    *   `calculateDuration(start: DateTime, end: DateTime): Duration`: Calculates the duration between two DateTime objects.
+    *   **Add:** Functions to parse JWT expiration times from `authConfig.jwt.expiresIn`.
+    *   **Add:** Functions to work with time durations (using Luxon's `Duration`) for caching (`CacheConfig`) and other time-sensitive operations.
+    *   **Add:** Functions to format dates according to `LocalizationConfig.dateTimeFormat`.
+
+#### e) `utils/crypto.ts`
+
+*   **Objective:** Provide secure cryptographic operations aligned with `SecurityConfig`.
+
+*   **Functions:**
+
+    *   `hashPassword(password: string): Promise<string>`: Securely hashes passwords using bcrypt (or Argon2) with settings from `securityConfig.bcrypt.saltRounds`.
+    *   `generateRandomString(length: number): string`: Generates cryptographically secure random strings.
+    *   `encrypt(data: string, secret: string): Promise<string>`: Encrypts data using a strong encryption algorithm (e.g., AES-256).
+    *   **Consider:**  Adding functions for JWT signing/verification using `authConfig.jwt`.
+
+#### f) `utils/file.ts`
+
+*   **Objective:** Handle file system operations, integrated with `StorageConfig`.
+
+*   **Functions:**
+
+    *   `getFileSize(filePath: string): Promise<number>`: Gets the size of a file in bytes.
+    *   `createDirectoryIfNotExists(dirPath: string): Promise<void>`: Creates a directory if it doesn't exist.
+    *   `streamFileToStorage(filePath: string): Promise<string>`: Streams files to the configured storage provider (`storageConfig`), handling different providers (S3, GCS, local).
+    *   **Add:** Functions to validate file uploads against `storageConfig.uploadLimits` (e.g., `isValidFileSize`, `isValidMimeType`).
+
+#### g) `utils/math.ts`
+
+*   **Objective:** Provide mathematical functions for audio processing and analysis.
+
+*   **Functions:**
+
+    *   `calculateAverage(numbers: number[]): number`: Calculates the average of an array of numbers.
+    *   `convertDecibelToLinear(dB: number): number`: Converts decibels (dB) to a linear scale.
+    *   **Add:** Project-specific functions for audio effects or analysis based on the project's DSP needs.
+
+#### h) `utils/network.ts`
+
+*   **Objective:** Manage network-related tasks.
+
+*   **Functions:**
+
+    *   `isValidIP(ip: string): boolean`: Validates IP addresses.
+    *   `parseURL(urlString: string): URL`: Parses URL strings.
+
+#### i) `utils/logging.ts`
+
+*   **Objective:** Enhance logging functionality, integrating with `LoggingConfig` and a logging framework (e.g., Winston, Pino).
+
+*   **Functions:**
+
+    *   `logRequest(req: Request, res: Response): void`: Logs HTTP requests based on `loggingConfig`.
+    *   `logErrorWithStack(error: Error): void`: Logs errors with stack traces, respecting `loggingConfig`.
+    *   `anonymizeLogData(logData: any): any`: Anonymizes log data based on `loggingConfig.anonymization`.
+
+#### j) `utils/performance.ts`
+
+*   **Objective:** Measure and analyze performance, potentially using `PerformanceConfig`.
+
+*   **Functions:**
+
+    *   `measureExecutionTime<T>(fn: () => T): Promise<[T, number]>`: Measures function execution time.
+    *   **Add:** Functions to monitor resource usage (CPU, memory) based on `performanceConfig`.
+
+#### k) `utils/async.ts`
+
+*   **Objective:** Simplify asynchronous operations.
+
+*   **Functions:**
+
+    *   `sleep(ms: number): Promise<void>`: Pauses execution asynchronously for a given number of milliseconds.
+    *   `retry(fn: () => Promise<T>, retries: number, delay: number): Promise<T>`: Retries a function with exponential backoff on failure.
+    *   **Consider:** Adding functions for working with asynchronous iterators, especially if dealing with large audio data streams.
+
+#### l) `utils/caching.ts`
+
+*   **Objective:** Provide caching mechanisms aligned with `CacheConfig`.
+
+*   **Functions:**
+
+    *   `getCachedValue(key: string): Promise<T | undefined>`: Retrieves cached values using `cacheConfig`.
+    *   `setCachedValue(key: string, value: T, ttl?: number): Promise<void>`: Caches values using `cacheConfig` for TTL or an optional parameter.
+    *   **Implement:** Distributed locking using `cacheConfig.distributedLock` to prevent cache stampede.
+
+#### m) `utils/i18n.ts`
+
+*   **Objective:** Handle internationalization and localization using `i18next` and `LocalizationConfig`.
+
+*   **Functions:**
+
+    *   `translate(key: string, options?: i18next.TOptions): string`: Translates keys to the current language.
+    *   `setLocale(locale: string): void`: Sets the current locale.
+    *   **Add:** Functions to load translations based on `localizationConfig.translationFilePath`.
+    *   **Add:** Functions to format numbers and currencies based on `localizationConfig.numberFormat`.
+
+### General Recommendations:
+
+*   **Thorough Documentation:** Document all functions and modules using JSDoc.
+*   **Comprehensive Testing:** Write unit tests for all utilities.
+*   **Security First:** Follow security best practices, especially in `crypto.ts`.
+*   **Performance Optimization:** Profile and optimize performance-critical utilities.
+*   **Modularity and Reusability:** Design modular and reusable utilities.
+*   **Leverage Existing Libraries:** Use established libraries for common tasks.
+*   **Configuration-Driven:** Make utilities configurable using the `config/` module.
+
+
+
+
+
+
+
+## Logical development sequence for the utils files. This sequence will prioritize core functionalities and dependencies, ensuring a smooth development process.
+
+1. `utils/logging.ts`:
+   Start with logging as it's crucial for debugging and monitoring during development.
+
+2. `utils/crypto.ts`:
+   Security is paramount, so implement cryptographic functions early.
+
+3. `utils/validation/index.ts` and `utils/validation/audio.ts`:
+   Set up core validation utilities to ensure data integrity throughout the application.
+
+4. `utils/string/index.ts` and `utils/string/sanitize.ts`:
+   Implement string manipulation and sanitization functions, which will be used across various modules.
+
+5. `utils/date.ts`:
+   Develop date/time utilities, which are essential for many operations.
+
+6. `utils/file.ts`:
+   File system operations are crucial for audio processing and storage.
+
+7. `utils/audio/index.ts`, `utils/audio/formats.ts`, `utils/audio/validation.ts`:
+   Begin with core audio utilities, focusing on format handling and validation.
+
+8. `utils/audio/analysis.ts`:
+   Implement audio analysis functions.
+
+9. `utils/audio/effects.ts`:
+   Develop audio effects utilities.
+
+10. `utils/math.ts`:
+    Create mathematical functions needed for audio processing and analysis.
+
+11. `utils/network.ts`:
+    Implement network-related utilities.
+
+12. `utils/performance.ts`:
+    Develop performance measurement and analysis tools.
+
+13. `utils/async.ts`:
+    Create utilities for handling asynchronous operations.
+
+14. `utils/caching.ts`:
+    Implement caching mechanisms.
+
+15. `utils/i18n.ts`:
+    Set up internationalization and localization utilities.
+
+This sequence prioritizes core functionalities (logging, security, validation) and then moves on to more specific utilities. It also considers dependencies between modules (e.g., audio validation before audio analysis and effects).

@@ -1,0 +1,129 @@
+Here's a comprehensive list of consistencies that should be maintained across all utility files, using the best practices and ensuring consistency with the config module:
+
+1. Imports:
+   - Import necessary modules and types: `import { z } from 'zod';`
+   - Import related configurations: `import { relevantConfig } from '../config/RelevantConfig';`
+
+2. Function Definitions:
+   - Use camelCase for function names: `export function utilityFunction() {...}`
+   - Provide type annotations for parameters and return types
+   - Use arrow functions for consistency: `export const utilityFunction = () => {...}`
+
+3. Type Definitions:
+   - Define types for complex data structures: `type ComplexType = {...};`
+   - Use Zod for runtime type checking where applicable
+
+4. Error Handling:
+   - Use try-catch blocks for error-prone operations
+   - Throw custom errors with descriptive messages
+   - Log errors before throwing them
+
+5. Validation:
+   - Use Zod schemas for validating input/output where appropriate
+   - Implement input validation at the beginning of functions
+
+6. Configuration Integration:
+   - Use imported configuration objects for dynamic behavior
+   - Avoid hardcoding values that should be configurable
+
+7. Comments and Documentation:
+   - Use JSDoc style comments for functions and types
+   - Provide detailed descriptions for parameters and return values
+
+8. Performance Considerations:
+   - Implement memoization for expensive operations
+   - Use efficient data structures and algorithms
+
+9. Testing Considerations:
+   - Design functions to be easily testable
+   - Avoid side effects where possible
+
+10. File Structure:
+    - Start with a file-level comment describing the purpose of the utility file
+    - Order: imports, type definitions, function definitions
+
+11. Naming Conventions:
+    - Use descriptive names for functions and variables
+    - Group related utilities in appropriately named files
+
+12. Extensibility:
+    - Design utilities to be easily extensible for future additions
+
+Here's a template that incorporates these consistencies:
+
+```typescript
+// src/utils/sampleUtil.ts
+
+import { z } from 'zod';
+import { relevantConfig } from '../config/RelevantConfig';
+import { CustomError } from './errorUtils';
+
+/**
+ * Schema for complex input type
+ */
+const ComplexInputSchema = z.object({
+  field1: z.string().describe('Description of field1'),
+  field2: z.number().positive().describe('Description of field2'),
+});
+
+/**
+ * Type definition for complex input
+ */
+type ComplexInput = z.infer<typeof ComplexInputSchema>;
+
+/**
+ * Processes a complex input and returns a result
+ * @param {ComplexInput} input - The complex input to process
+ * @returns {string} The processed result
+ * @throws {CustomError} If input is invalid or processing fails
+ */
+export const processComplexInput = (input: ComplexInput): string => {
+  try {
+    // Validate input
+    ComplexInputSchema.parse(input);
+
+    // Process the input using configuration
+    const result = `Processed ${input.field1} with config value ${relevantConfig.someValue}`;
+
+    return result;
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error('Input validation failed:', error.errors);
+      throw new CustomError('Invalid input', 'INVALID_INPUT', 400);
+    }
+    console.error('Processing failed:', error);
+    throw new CustomError('Processing failed', 'PROCESSING_ERROR', 500);
+  }
+};
+
+/**
+ * Memoized utility function for expensive operations
+ */
+export const memoizedExpensiveOperation = (() => {
+  const cache = new Map<string, number>();
+
+  return (input: string): number => {
+    if (cache.has(input)) {
+      return cache.get(input)!;
+    }
+
+    // Simulate expensive operation
+    const result = input.length * relevantConfig.complexFactor;
+    cache.set(input, result);
+
+    return result;
+  };
+})();
+
+// Validate the utility functions
+try {
+  const sampleInput: ComplexInput = { field1: 'test', field2: 5 };
+  processComplexInput(sampleInput);
+  memoizedExpensiveOperation('test');
+} catch (error) {
+  console.error('Utility function validation failed:', error);
+  throw error;
+}
+```
+
+This template and the list of consistencies should be applied across all utility files to ensure uniformity, maintainability, and consistency with your config module in your project.
