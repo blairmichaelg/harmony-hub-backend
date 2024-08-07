@@ -1,31 +1,64 @@
 # Dependencies
 node_modules/
+package-lock.json
+yarn.lock
 
 # Build output
 dist/
+build/
 
 # Logs
 logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
 
 # Environment variables
 .env
+.env.local
+.env.*.local
+.env.test
+.env.production
+!.env.example
 
 # IDE files
 .vscode/
 .idea/
+*.sublime-project
+*.sublime-workspace
 
 # OS generated files
 .DS_Store
 Thumbs.db
+.AppleDouble
+.LSOverride
+Icon?
 
 # Test coverage
 coverage/
+.nyc_output/
 
 # Temporary files
 *.tmp
 *.temp
+*.swp
+*.swo
 
 # TypeScript build info
 *.tsbuildinfo
+
+# Miscellaneous
+.cache/
+.eslintcache
+.stylelintcache
+.npm
+.yarn-integrity
+
+# Optional: Uncomment if using these tools
+# .serverless/
+# .webpack/
+# .next/
+# .nuxt/
+# .docz/
