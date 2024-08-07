@@ -19,12 +19,17 @@ export default [
       parser: tsParser,
       parserOptions: {
         project: './tsconfig.json',
-        ecmaVersion: 'latest',
+        ecmaVersion: 2022,
         sourceType: 'module',
       },
       globals: {
         ...globals.node,
-        ...globals.es2021,
+        ...globals.es2022,
+      },
+    },
+    settings: {
+      'import/resolver': {
+        typescript: {},
       },
     },
     rules: {
@@ -50,8 +55,6 @@ export default [
       '@typescript-eslint/prefer-as-const': 'error',
       '@typescript-eslint/prefer-namespace-keyword': 'error',
       '@typescript-eslint/triple-slash-reference': 'error',
-
-      // Stylistic rules
       '@typescript-eslint/consistent-type-definitions': ['error', 'interface'],
       '@typescript-eslint/naming-convention': [
         'error',
@@ -65,8 +68,6 @@ export default [
           format: ['PascalCase'],
         },
       ],
-
-      // Additional custom rules
       '@typescript-eslint/explicit-function-return-type': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -80,7 +81,7 @@ export default [
       // General JavaScript/TypeScript rules
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'no-debugger': 'error',
-      eqeqeq: ['error', 'always'],
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
       curly: ['error', 'all'],
       'prefer-const': 'error',
       'no-var': 'error',
@@ -104,6 +105,17 @@ export default [
           groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index'],
         },
       ],
+      'import/no-unresolved': 'error',
+      'import/named': 'error',
+      'import/default': 'error',
+      'import/namespace': 'error',
+      'import/no-absolute-path': 'error',
+      'import/no-dynamic-require': 'error',
+      'import/no-self-import': 'error',
+      'import/no-cycle': 'error',
+      'import/no-useless-path-segments': 'error',
+      'import/no-unused-modules': 'error',
+      'import/no-deprecated': 'warn',
       'sort-imports': ['error', { ignoreDeclarationSort: true }],
     },
   },

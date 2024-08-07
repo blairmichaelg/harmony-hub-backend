@@ -5,10 +5,10 @@
   "description": "Advanced backend server for Harmony Hub, an innovative audio collaboration platform",
   "main": "dist/server/app.js",
   "scripts": {
-    "start": "node dist/server/app.js",
-    "dev": "nodemon --exec ts-node src/server/app.ts",
+    "start": "node --experimental-specifier-resolution=node dist/server/app.js",
+    "dev": "nodemon --exec ts-node --esm src/server/app.ts",
     "build": "tsc",
-    "lint": "eslint . --ext .ts,.tsx",
+    "lint": "eslint .",
     "lint:fix": "eslint --fix src/**/*.{js,jsx,ts,tsx,json}",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -19,9 +19,10 @@
     "docker:run": "docker run -p 3000:3000 harmony-hub-backend",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
-    "prepare": "husky install",
-    "precommit": "lint-staged",
-    "validate": "npm-run-all --parallel typecheck lint format:check test"
+    "validate": "npm-run-all --parallel typecheck lint format:check test",
+    "test:ci": "jest --ci --coverage --maxWorkers=2",
+    "test:debug": "node --inspect-brk node_modules/.bin/jest --runInBand",
+    "precommit": "npm run lint && npm run format"
   },
   "keywords": [
     "audio",
@@ -41,10 +42,8 @@
   "dependencies": {
     "@tensorflow/tfjs": "^4.4.0",
     "@tensorflow/tfjs-node": "^4.4.0",
-    "@types/bcrypt": "^5.0.2",
     "apollo-server-express": "^3.12.0",
     "bcrypt": "^5.1.1",
-    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-rate-limit": "^6.7.0",
@@ -57,19 +56,21 @@
     "mongoose": "^7.8.0",
     "morgan": "^1.10.0",
     "redis": "^4.6.5",
-    "semver": "^7.6.3",
     "socket.io": "^4.6.1",
     "speaker": "^0.5.5",
     "tone": "^14.7.77",
     "web-audio-api": "^0.2.2",
     "winston": "^3.8.2",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "zod": "^3.23.8",
+    "underscore": "^1.13.1",
+    "fsa": "^1.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^8.38.0",
     "@graphql-codegen/cli": "^5.0.2",
     "@graphql-codegen/typescript": "^3.0.3",
-    "@types/bcryptjs": "^2.4.2",
+    "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.17",
     "@types/jest": "^29.5.0",
     "@types/jsonwebtoken": "^9.0.6",
@@ -84,15 +85,10 @@
     "eslint-import-resolver-typescript": "^3.5.5",
     "eslint-plugin-import": "^2.29.1",
     "eslint-plugin-prettier": "^4.2.1",
-    "fs": "^0.0.1-security",
-    "globals": "^13.24.0",
-    "husky": "^8.0.3",
     "jest": "^29.5.0",
-    "joi": "^17.13.3",
-    "lint-staged": "^13.2.1",
     "nodemon": "^3.1.4",
     "npm-run-all": "^4.1.5",
-    "path": "^0.12.7",
+    "pg": "^8.12.0",
     "prettier": "^2.8.8",
     "supertest": "^6.3.3",
     "ts-jest": "^29.1.0",
@@ -100,21 +96,9 @@
     "typescript": "^5.1.6",
     "webpack": "^5.79.0",
     "webpack-cli": "^5.0.1",
-    "webpack-node-externals": "^3.0.0",
-    "zod": "^3.23.8"
+    "webpack-node-externals": "^3.0.0"
   },
   "engines": {
-    "node": ">=14.0.0"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix",
-      "prettier --write"
-    ]
+    "node": ">=16.0.0"
   }
 }

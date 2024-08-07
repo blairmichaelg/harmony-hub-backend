@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "lib": ["ES2020"],
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM"],
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -23,13 +23,16 @@
     "emitDecoratorMetadata": true,
     "incremental": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
-    "baseUrl": "./src",
+    "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["src/*"]
     },
     "typeRoots": ["./node_modules/@types", "./src/types"],
-    "isolatedModules": true
+    "isolatedModules": true,
+    "types": ["node", "jest"],
+    "allowJs": true,
+    "checkJs": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "**/*.spec.ts", "dist"]
+  "include": ["src/**/*", "tests/**/*", "jest.setup.ts"],
+  "exclude": ["node_modules", "dist"]
 }
