@@ -1,152 +1,166 @@
 // src/utils/crypto.ts
 
-import * as crypto from 'crypto';
+import crypto from 'crypto';
 
-import * as bcrypt from 'bcrypt';
-import * as jwt from 'jsonwebtoken';
-import { z } from 'zod';
+import bcrypt from 'bcrypt';
 
 import { authConfig } from '../config/AuthConfig';
 import { securityConfig } from '../config/SecurityConfig';
 
 import { CustomError } from './errorUtils';
+import logger from './logging';
 
 /**
- * Schema for password hashing options
+ * Securely hashes a password using bcrypt
+ * @param {string} password - The password to hash
+ * @returns {Promise<string>} The hashed password
+ * @throws {CustomError} If hashing fails
  */
-const PasswordHashOptionsSchema = z.object({
-  saltRounds: z.number().int().positive().default(securityConfig.bcrypt.saltRounds),
-});
+export const hashPassword = async (password: string): Promise<string> => {
+  try {
+    const { saltRounds } = securityConfig.bcrypt;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-type PasswordHashOptions = z.infer<typeof PasswordHashOptionsSchema>;
+    return hashedPassword;
+  } catch (error) {
+    logger.error('Password hashing failed:', error);
+    throw new CustomError('Failed to hash password', 'PASSWORD_HASHING_ERROR', 500);
+  }
+};
 
 /**
- * Schema for encryption options
+ * Compares a plain text password with a hashed password
+ * @param {string} password - The plain text password
+ * @param {string} hash - The hashed password
+ * @returns {Promise<boolean>} True if the passwords match, false otherwise
+ * @throws {CustomError} If comparison fails
  */
-const EncryptionOptionsSchema = z.object({
-  algorithm: z.string().default('aes-256-cbc'),
-  ivLength: z.number().int().positive().default(16),
-});
+export const comparePassword = async (password: string, hash: string): Promise<boolean> => {
+  try {
+    const match = await bcrypt.compare(password, hash);
 
-type EncryptionOptions = z.infer<typeof EncryptionOptionsSchema>;
+    return match;
+  } catch (error) {
+    logger.error('Password comparison failed:', error);
+    throw new CustomError('Failed to compare passwords', 'PASSWORD_COMPARISON_ERROR', 500);
+  }
+};
 
 /**
- * Hashes a password using bcrypt
- * @param password - The password to hash
- * @param options - Optional password hashing options
- * @returns A promise that resolves to the hashed password
+ * Generates a cryptographically secure random string
+ * @param {number} length - The desired length of the random string
+ * @returns {string} The generated random string
  */
-export async function hashPassword(
-  password: string,
-  options?: Partial<PasswordHashOptions>
-): Promise<string> {
-  const validatedOptions = PasswordHashOptionsSchema.parse(options || {});
-
-  return bcrypt.hash(password, validatedOptions.saltRounds);
-}
+export const generateRandomString = (length: number): string => {
+  return crypto.randomBytes(length).toString('hex');
+};
 
 /**
- * Compares a password with a hashed password
- * @param password - The password to compare
- * @param hashedPassword - The hashed password to compare against
- * @returns A promise that resolves to a boolean indicating whether the password matches
+ * Encrypts data using AES-256-CBC
+ * @param {string} data - The data to encrypt
+ * @param {string} key - The encryption key
+ * @returns {Promise<string>} The encrypted data
+ * @throws {CustomError} If encryption fails
  */
-export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
-  return bcrypt.compare(password, hashedPassword);
-}
+export const encrypt = async (data: string, key: string): Promise<string> => {
+  try {
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv);
+    let encrypted = cipher.update(data, 'utf8', 'hex');
+
+    encrypted += cipher.final('hex');
+
+    return `${iv.toString('hex')}:${encrypted}`;
+  } catch (error) {
+    logger.error('Encryption failed:', error);
+    throw new CustomError('Failed to encrypt data', 'ENCRYPTION_ERROR', 500);
+  }
+};
 
 /**
- * Generates a JWT token
- * @param payload - The payload to include in the token
- * @param options - Optional JWT sign options
- * @returns A promise that resolves to the generated token
+ * Decrypts data using AES-256-CBC
+ * @param {string} encryptedData - The encrypted data
+ * @param {string} key - The decryption key
+ * @returns {Promise<string>} The decrypted data
+ * @throws {CustomError} If decryption fails
  */
-export function generateToken(payload: object, options: jwt.SignOptions = {}): Promise<string> {
-  return new Promise((resolve, reject) => {
-    jwt.sign(
-      payload,
-      authConfig.jwt.secret,
-      { ...options, expiresIn: authConfig.jwt.expiresIn },
-      (err, token) => {
-        if (err) reject(err);
-        else resolve(token as string);
-      }
-    );
-  });
-}
+export const decrypt = async (encryptedData: string, key: string): Promise<string> => {
+  try {
+    const [ivHex, encryptedHex] = encryptedData.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
+  } catch (error) {
+    logger.error('Decryption failed:', error);
+    throw new CustomError('Failed to decrypt data', 'DECRYPTION_ERROR', 500);
+  }
+};
 
 /**
- * Verifies a JWT token
- * @param token - The token to verify
- * @returns A promise that resolves to the decoded token payload
- * @throws {CustomError} If the token is invalid
+ * Generates a SHA-256 hash of a string
+ * @param {string} data - The data to hash
+ * @returns {string} The SHA-256 hash
  */
-export function verifyToken(token: string): Promise<jwt.JwtPayload> {
-  return new Promise((resolve, reject) => {
-    jwt.verify(token, authConfig.jwt.secret, (err, decoded) => {
-      if (err) reject(new CustomError('Invalid token', 401));
-      else resolve(decoded as jwt.JwtPayload);
-    });
-  });
-}
-
-/**
- * Encrypts data using the specified algorithm
- * @param data - The data to encrypt
- * @param key - The encryption key
- * @param options - Optional encryption options
- * @returns The encrypted data as a buffer
- */
-export function encrypt(
-  data: string | Buffer,
-  key: string | Buffer,
-  options?: Partial<EncryptionOptions>
-): Buffer {
-  const validatedOptions = EncryptionOptionsSchema.parse(options || {});
-  const iv = crypto.randomBytes(validatedOptions.ivLength);
-  const cipher = crypto.createCipheriv(validatedOptions.algorithm, key, iv);
-  const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
-
-  return Buffer.concat([iv, encrypted]);
-}
-
-/**
- * Decrypts data using the specified algorithm
- * @param data - The data to decrypt
- * @param key - The decryption key
- * @param options - Optional decryption options
- * @returns The decrypted data as a buffer
- */
-export function decrypt(
-  data: Buffer,
-  key: string | Buffer,
-  options?: Partial<EncryptionOptions>
-): Buffer {
-  const validatedOptions = EncryptionOptionsSchema.parse(options || {});
-  const iv = data.slice(0, validatedOptions.ivLength);
-  const encryptedData = data.slice(validatedOptions.ivLength);
-  const decipher = crypto.createDecipheriv(validatedOptions.algorithm, key, iv);
-
-  return Buffer.concat([decipher.update(encryptedData), decipher.final()]);
-}
-
-/**
- * Generates a random string of specified length
- * @param length - The length of the random string
- * @returns A random string
- */
-export function generateRandomString(length: number): string {
-  return crypto
-    .randomBytes(Math.ceil(length / 2))
-    .toString('hex')
-    .slice(0, length);
-}
-
-/**
- * Hashes data using SHA-256
- * @param data - The data to hash
- * @returns The hashed data as a hexadecimal string
- */
-export function hashSHA256(data: string | Buffer): string {
+export const hashSHA256 = (data: string): string => {
   return crypto.createHash('sha256').update(data).digest('hex');
+};
+
+/**
+ * Signs data using the configured JWT secret and algorithm
+ * @param {object} payload - The data to sign
+ * @returns {Promise<string>} The signed JWT token
+ * @throws {CustomError} If signing fails
+ */
+export const signJWT = async (payload: object): Promise<string> => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const jwt = require('jsonwebtoken');
+
+    return jwt.sign(payload, authConfig.jwt.secret, {
+      algorithm: authConfig.jwt.algorithm,
+      expiresIn: authConfig.jwt.expiresIn,
+    });
+  } catch (error) {
+    logger.error('JWT signing failed:', error);
+    throw new CustomError('Failed to sign JWT', 'JWT_SIGNING_ERROR', 500);
+  }
+};
+
+/**
+ * Verifies a JWT token using the configured JWT secret and algorithm
+ * @param {string} token - The JWT token to verify
+ * @returns {Promise<object | string>} The decoded payload if the token is valid, otherwise throws an error
+ * @throws {CustomError} If verification fails
+ */
+export const verifyJWT = async (token: string): Promise<object | string> => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const jwt = require('jsonwebtoken');
+
+    return jwt.verify(token, authConfig.jwt.secret, {
+      algorithms: [authConfig.jwt.algorithm],
+    });
+  } catch (error) {
+    logger.error('JWT verification failed:', error);
+    throw new CustomError('Failed to verify JWT', 'JWT_VERIFICATION_ERROR', 401);
+  }
+};
+
+// Validate the utility functions
+try {
+  await hashPassword('test');
+  await comparePassword('test', 'hashedPassword');
+  generateRandomString(32);
+  await encrypt('test', 'secret');
+  await decrypt('encryptedData', 'secret');
+  hashSHA256('test');
+  await signJWT({ data: 'test' });
+  await verifyJWT('token');
+} catch (error) {
+  logger.error('Crypto utility function validation failed:', error);
+  throw error;
 }

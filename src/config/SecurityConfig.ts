@@ -1,145 +1,174 @@
 // src/config/SecurityConfig.ts
 
+import convict from 'convict';
 import { z } from 'zod';
 
-import { getEnvVar, parseJSON } from '../utils/envUtils';
-
-/**
- * Schema for JWT configuration
- * @remarks
- * Defines the structure and validation rules for JWT settings.
- */
-const JwtSchema = z.object({
-  secret: z.string().min(32).describe('JWT secret key'),
-  expiresIn: z.string().describe('JWT expiration time'),
-});
-
-/**
- * Schema for bcrypt configuration
- * @remarks
- * Defines the structure and validation rules for bcrypt settings.
- */
-const BcryptSchema = z.object({
-  saltRounds: z.coerce.number().int().positive().describe('Number of salt rounds for bcrypt'),
-});
-
-/**
- * Schema for password strength configuration
- * @remarks
- * Defines the structure and validation rules for password strength requirements.
- */
-const PasswordStrengthSchema = z.object({
-  minLength: z.coerce.number().int().min(8).describe('Minimum password length'),
-  requireUppercase: z.coerce.boolean().describe('Require uppercase characters in password'),
-  requireLowercase: z.coerce.boolean().describe('Require lowercase characters in password'),
-  requireNumbers: z.coerce.boolean().describe('Require numbers in password'),
-  requireSpecialChars: z.coerce.boolean().describe('Require special characters in password'),
-});
-
-/**
- * Schema for rate limiting configuration
- * @remarks
- * Defines the structure and validation rules for rate limiting settings.
- */
-const RateLimitingSchema = z.object({
-  enabled: z.coerce.boolean().describe('Enable rate limiting'),
-  maxRequests: z.coerce.number().int().positive().describe('Maximum number of requests allowed'),
-  windowMs: z.coerce
-    .number()
-    .int()
-    .positive()
-    .describe('Time window for rate limiting in milliseconds'),
-});
-
-/**
- * Schema for CORS configuration
- * @remarks
- * Defines the structure and validation rules for CORS settings.
- */
-const CorsSchema = z.object({
-  origin: z.union([z.string(), z.array(z.string())]).describe('Allowed origins for CORS'),
-  methods: z.array(z.string()).describe('Allowed HTTP methods for CORS'),
-});
-
-/**
- * Schema for Helmet configuration
- * @remarks
- * Defines the structure and validation rules for Helmet settings.
- */
-const HelmetSchema = z.object({
-  contentSecurityPolicy: z.coerce.boolean().describe('Enable Content Security Policy'),
-  xssFilter: z.coerce.boolean().describe('Enable XSS filter'),
-});
-
-/**
- * Schema for security configuration
- * @remarks
- * This schema defines the structure and validation rules for the security configuration.
- */
-export const SecurityConfigSchema = z.object({
-  jwt: JwtSchema,
-  bcrypt: BcryptSchema,
-  passwordStrength: PasswordStrengthSchema,
-  rateLimiting: RateLimitingSchema,
-  cors: CorsSchema,
-  helmet: HelmetSchema,
-  enableSSL: z.coerce.boolean().describe('Enable SSL/TLS'),
-});
-
-/**
- * Type definition for security configuration
- */
-export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
-
-/**
- * Security configuration object
- * @remarks
- * This object contains the parsed and validated security configuration.
- */
-export const securityConfig: SecurityConfig = SecurityConfigSchema.parse({
+const SecurityConfigSchema = convict({
   jwt: {
-    secret: getEnvVar(
-      'JWT_SECRET',
-      process.env.NODE_ENV === 'production' ? undefined : 'default-secret-key-for-development-only'
-    ),
-    expiresIn: getEnvVar('JWT_EXPIRES_IN', '1d'),
+    secret: {
+      doc: 'JWT secret key',
+      format: 'string',
+      default:
+        process.env.NODE_ENV === 'production'
+          ? '' // Generate a strong secret in production
+          : 'default-secret-key-for-development-only',
+      env: 'JWT_SECRET',
+      sensitive: true,
+    },
+    expiresIn: {
+      doc: 'JWT expiration time',
+      format: 'string',
+      default: '1d',
+      env: 'JWT_EXPIRES_IN',
+    },
   },
   bcrypt: {
-    saltRounds: getEnvVar('BCRYPT_SALT_ROUNDS', '12'),
+    saltRounds: {
+      doc: 'Number of salt rounds for bcrypt',
+      format: 'nat',
+      default: 12,
+      env: 'BCRYPT_SALT_ROUNDS',
+    },
   },
   passwordStrength: {
-    minLength: getEnvVar('PASSWORD_MIN_LENGTH', '10'),
-    requireUppercase: getEnvVar('PASSWORD_REQUIRE_UPPERCASE', 'true'),
-    requireLowercase: getEnvVar('PASSWORD_REQUIRE_LOWERCASE', 'true'),
-    requireNumbers: getEnvVar('PASSWORD_REQUIRE_NUMBERS', 'true'),
-    requireSpecialChars: getEnvVar('PASSWORD_REQUIRE_SPECIAL_CHARS', 'true'),
+    minLength: {
+      doc: 'Minimum password length',
+      format: 'nat',
+      default: 10,
+      env: 'PASSWORD_MIN_LENGTH',
+    },
+    requireUppercase: {
+      doc: 'Require uppercase characters in password',
+      format: 'Boolean',
+      default: true,
+      env: 'PASSWORD_REQUIRE_UPPERCASE',
+    },
+    requireLowercase: {
+      doc: 'Require lowercase characters in password',
+      format: 'Boolean',
+      default: true,
+      env: 'PASSWORD_REQUIRE_LOWERCASE',
+    },
+    requireNumbers: {
+      doc: 'Require numbers in password',
+      format: 'Boolean',
+      default: true,
+      env: 'PASSWORD_REQUIRE_NUMBERS',
+    },
+    requireSpecialChars: {
+      doc: 'Require special characters in password',
+      format: 'Boolean',
+      default: true,
+      env: 'PASSWORD_REQUIRE_SPECIAL_CHARS',
+    },
   },
   rateLimiting: {
-    enabled: getEnvVar('RATE_LIMITING_ENABLED', 'true'),
-    maxRequests: getEnvVar('RATE_LIMITING_MAX_REQUESTS', '100'),
-    windowMs: getEnvVar('RATE_LIMITING_WINDOW_MS', '900000'), // 15 minutes
+    enabled: {
+      doc: 'Enable rate limiting',
+      format: 'Boolean',
+      default: true,
+      env: 'RATE_LIMITING_ENABLED',
+    },
+    maxRequests: {
+      doc: 'Maximum number of requests allowed',
+      format: 'nat',
+      default: 100,
+      env: 'RATE_LIMITING_MAX_REQUESTS',
+    },
+    windowMs: {
+      doc: 'Time window for rate limiting in milliseconds',
+      format: 'nat',
+      default: 900000, // 15 minutes
+      env: 'RATE_LIMITING_WINDOW_MS',
+    },
   },
   cors: {
-    origin: parseJSON(getEnvVar('CORS_ORIGIN', '["*"]')),
-    methods: getEnvVar('CORS_METHODS', 'GET,POST,PUT,DELETE,OPTIONS').split(','),
+    origin: {
+      doc: 'Allowed origins for CORS',
+      format: Array,
+      default: ['*'],
+      env: 'CORS_ORIGIN',
+    },
+    methods: {
+      doc: 'Allowed HTTP methods for CORS',
+      format: Array,
+      default: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      env: 'CORS_METHODS',
+    },
   },
   helmet: {
-    contentSecurityPolicy: getEnvVar('HELMET_CONTENT_SECURITY_POLICY', 'true'),
-    xssFilter: getEnvVar('HELMET_XSS_FILTER', 'true'),
+    contentSecurityPolicy: {
+      doc: 'Enable Content Security Policy',
+      format: 'Boolean',
+      default: true,
+      env: 'HELMET_CONTENT_SECURITY_POLICY',
+    },
+    xssFilter: {
+      doc: 'Enable XSS filter',
+      format: 'Boolean',
+      default: true,
+      env: 'HELMET_XSS_FILTER',
+    },
   },
-  enableSSL: getEnvVar('ENABLE_SSL', 'true'),
+  enableSSL: {
+    doc: 'Enable SSL/TLS',
+    format: 'Boolean',
+    default: false, // Default to false for development
+    env: 'ENABLE_SSL',
+  },
+  twoFactorAuthentication: {
+    enabled: {
+      doc: 'Enable two-factor authentication',
+      format: 'Boolean',
+      default: false,
+      env: 'TWO_FACTOR_AUTH_ENABLED',
+    },
+    providers: {
+      doc: 'Two-factor authentication providers',
+      format: ['email', 'sms', 'authenticator'], // Example providers
+      default: [],
+      env: 'TWO_FACTOR_AUTH_PROVIDERS',
+    },
+  },
+  oauth2: {
+    enabled: {
+      doc: 'Enable OAuth2/OpenID Connect authentication',
+      format: 'Boolean',
+      default: false,
+      env: 'OAUTH2_ENABLED',
+    },
+    providers: {
+      doc: 'OAuth2/OpenID Connect provider configurations',
+      format: z.record(
+        z.object({
+          provider: z.string().describe('OAuth2 provider name (e.g., google, facebook)'),
+          clientId: z.string().describe('OAuth2 client ID'),
+          clientSecret: z.string().describe('OAuth2 client secret'),
+          callbackURL: z.string().url().describe('OAuth2 callback URL'),
+        })
+      ),
+      default: {},
+      env: 'OAUTH2_PROVIDERS',
+    },
+  },
+});
+
+export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
+
+// Create and validate the configuration object
+export const securityConfig = SecurityConfigSchema.validate({
+  // Load configuration from environment variables or use defaults
 });
 
 // Validate the configuration
 try {
-  SecurityConfigSchema.parse(securityConfig);
+  SecurityConfigSchema.validate(securityConfig);
 } catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Security configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
+  if (error instanceof Error) {
+    console.error('Security configuration validation failed:', error.message);
     throw new Error('Invalid security configuration');
   }
   throw error;
 }
+
+export default securityConfig;

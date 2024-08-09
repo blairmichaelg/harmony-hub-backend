@@ -1,5 +1,6 @@
 // src/utils/logging.ts
 
+import { Request, Response } from 'express';
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import { z } from 'zod';
@@ -71,6 +72,50 @@ const logger = winston.createLogger({
   levels: winston.config.npm.levels,
   transports: [consoleTransport, fileTransport],
 });
+
+/**
+ * Logs an error message with its stack trace
+ * @param {Error} error - The error object
+ */
+export const logErrorWithStack = (error: Error): void => {
+  logger.error(error.message, { stack: error.stack });
+};
+
+/**
+ * Logs an HTTP request
+ * @param {Request} req - The Express request object
+ * @param {Response} res - The Express response object
+ */
+export const logRequest = (req: Request, res: Response): void => {
+  const { method, url, headers, body } = req;
+  const { statusCode } = res;
+
+  logger.http(`${method} ${url} - ${statusCode}`, {
+    headers,
+    body,
+  });
+};
+
+/**
+ * Anonymizes log data based on the configuration
+ * @param {Record<string, unknown>} logData - The log data to anonymize
+ * @returns {Record<string, unknown>} The anonymized log data
+ */
+export const anonymizeLogData = (logData: Record<string, unknown>): Record<string, unknown> => {
+  if (!loggingConfig.anonymization.enabled) {
+    return logData;
+  }
+
+  const anonymizedData = { ...logData };
+
+  loggingConfig.anonymization.fields.forEach((field) => {
+    if (anonymizedData[field]) {
+      anonymizedData[field] = '[REDACTED]';
+    }
+  });
+
+  return anonymizedData;
+};
 
 /**
  * Custom log method with support for additional metadata

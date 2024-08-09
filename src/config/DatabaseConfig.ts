@@ -1,47 +1,65 @@
 // src/config/DatabaseConfig.ts
 
+import convict from 'convict';
 import { z } from 'zod';
-
-import { getEnvVar } from '../utils/envUtils';
 
 /**
  * Schema for database configuration
  * @remarks
  * This schema defines the structure and validation rules for the database configuration.
  */
-export const DatabaseConfigSchema = z.object({
-  type: z.enum(['postgres', 'mongodb']).describe('Type of database'),
-  url: z.string().url().describe('Database connection URL'),
-  maxConnections: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(20)
-    .describe('Maximum number of database connections'),
-  connectionLimit: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(10)
-    .describe('Database connection limit'),
-  idleTimeoutMillis: z.coerce
-    .number()
-    .int()
-    .nonnegative()
-    .default(30000)
-    .describe('Idle timeout in milliseconds'),
-  connectionTimeoutMillis: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(2000)
-    .describe('Connection timeout in milliseconds'),
-  migrations: z
-    .object({
-      directory: z.string().describe('Directory for database migrations'),
-      tableName: z.string().describe('Table name for tracking migrations'),
-    })
-    .describe('Database migration configuration'),
+const DatabaseConfigSchema = convict({
+  type: {
+    doc: 'Type of database',
+    format: ['postgres', 'mongodb'],
+    default: 'postgres',
+    env: 'DB_TYPE',
+  },
+  url: {
+    doc: 'Database connection URL',
+    format: 'url',
+    default: '', // Set a default value or require this variable
+    env: 'DATABASE_URL',
+    sensitive: true,
+  },
+  maxConnections: {
+    doc: 'Maximum number of database connections',
+    format: 'nat',
+    default: 20,
+    env: 'DB_MAX_CONNECTIONS',
+  },
+  connectionLimit: {
+    doc: 'Database connection limit',
+    format: 'nat',
+    default: 10,
+    env: 'DB_CONNECTION_LIMIT',
+  },
+  idleTimeoutMillis: {
+    doc: 'Idle timeout in milliseconds',
+    format: 'nat',
+    default: 30000,
+    env: 'DB_IDLE_TIMEOUT',
+  },
+  connectionTimeoutMillis: {
+    doc: 'Connection timeout in milliseconds',
+    format: 'nat',
+    default: 2000,
+    env: 'DB_CONNECTION_TIMEOUT',
+  },
+  migrations: {
+    directory: {
+      doc: 'Directory for database migrations',
+      format: 'string',
+      default: './migrations',
+      env: 'DB_MIGRATIONS_DIR',
+    },
+    tableName: {
+      doc: 'Table name for tracking migrations',
+      format: 'string',
+      default: 'migrations',
+      env: 'DB_MIGRATIONS_TABLE',
+    },
+  },
 });
 
 /**
@@ -54,32 +72,9 @@ export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
  * @remarks
  * This object contains the parsed and validated database configuration.
  */
-export const databaseConfig: DatabaseConfig = DatabaseConfigSchema.parse({
-  type: getEnvVar('DB_TYPE', 'postgres'),
-  url: getEnvVar('DATABASE_URL'),
-  maxConnections: getEnvVar('DB_MAX_CONNECTIONS', '20'),
-  connectionLimit: getEnvVar('DB_CONNECTION_LIMIT', '10'),
-  idleTimeoutMillis: getEnvVar('DB_IDLE_TIMEOUT', '30000'),
-  connectionTimeoutMillis: getEnvVar('DB_CONNECTION_TIMEOUT', '2000'),
-  migrations: {
-    directory: getEnvVar('DB_MIGRATIONS_DIR', './migrations'),
-    tableName: getEnvVar('DB_MIGRATIONS_TABLE', 'migrations'),
-  },
+export const databaseConfig = DatabaseConfigSchema.validate({
+  // Load configuration from environment variables or use defaults
 });
-
-// Validate the configuration
-try {
-  DatabaseConfigSchema.parse(databaseConfig);
-} catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Database configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
-    throw new Error('Invalid database configuration');
-  }
-  throw error;
-}
 
 /**
  * Connects to the database based on the configuration
@@ -89,7 +84,8 @@ try {
 export const connectDB = async (): Promise<void> => {
   try {
     if (databaseConfig.type === 'mongodb') {
-      const mongoose = await import('mongoose');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const mongoose = require('mongoose');
       const conn = await mongoose.connect(databaseConfig.url, {
         maxPoolSize: databaseConfig.connectionLimit,
         serverSelectionTimeoutMS: databaseConfig.connectionTimeoutMillis,
@@ -97,7 +93,8 @@ export const connectDB = async (): Promise<void> => {
 
       console.log(`MongoDB Connected: ${conn.connection.host}`);
     } else {
-      const { Pool } = await import('pg');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { Pool } = require('pg');
       const pool = new Pool({
         connectionString: databaseConfig.url,
         max: databaseConfig.connectionLimit,
@@ -114,3 +111,16 @@ export const connectDB = async (): Promise<void> => {
     process.exit(1);
   }
 };
+
+// Validate the configuration
+try {
+  DatabaseConfigSchema.validate(databaseConfig);
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('Database configuration validation failed:', error.message);
+    throw new Error('Invalid database configuration');
+  }
+  throw error;
+}
+
+export default databaseConfig;

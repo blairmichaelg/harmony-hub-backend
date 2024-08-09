@@ -1,8 +1,7 @@
 // src/config/LoggingConfig.ts
 
+import convict from 'convict';
 import { z } from 'zod';
-
-import { getEnvVar, parseJSON } from '../utils/envUtils';
 
 /**
  * Enum for log levels
@@ -49,15 +48,91 @@ const RotationConfigSchema = z.object({
 });
 
 /**
+ * Schema for external logging service configuration
+ */
+const ExternalLoggingServiceSchema = z.object({
+  enabled: z.boolean().describe('Enable external logging service'),
+  type: z.enum(['elk', 'splunk', 'other']).describe('Type of external logging service'),
+  endpoint: z.string().url().describe('Endpoint URL of the external logging service'),
+});
+
+/**
+ * Schema for error tracking configuration
+ */
+const ErrorTrackingConfigSchema = z.object({
+  enabled: z.boolean().describe('Enable error tracking'),
+  provider: z.enum(['sentry', 'rollbar', 'other']).describe('Error tracking provider'),
+  dsn: z.string().describe('DSN (Data Source Name) for the error tracking service'),
+});
+
+/**
  * Schema for logging configuration
  * @remarks
  * This schema defines the structure and validation rules for the logging configuration.
  */
-export const LoggingConfigSchema = z.object({
-  console: LoggerConfigSchema.describe('Console logger configuration'),
-  file: FileLoggerConfigSchema.describe('File logger configuration'),
-  anonymization: AnonymizationConfigSchema.describe('Log anonymization configuration'),
-  rotation: RotationConfigSchema.describe('Log rotation configuration'),
+const LoggingConfigSchema = convict({
+  console: {
+    doc: 'Console logger configuration',
+    format: LoggerConfigSchema,
+    default: {
+      level: 'info',
+      format: 'colorized',
+      timestamp: true,
+    },
+    env: 'LOGGING_CONSOLE',
+  },
+  file: {
+    doc: 'File logger configuration',
+    format: FileLoggerConfigSchema,
+    default: {
+      level: 'info',
+      format: 'json',
+      timestamp: true,
+      filename: 'app.log',
+      maxsize: 10485760, // 10MB
+      maxFiles: 5,
+    },
+    env: 'LOGGING_FILE',
+  },
+  anonymization: {
+    doc: 'Log anonymization configuration',
+    format: AnonymizationConfigSchema,
+    default: {
+      enabled: false,
+      fields: ['email', 'password', 'creditCard'],
+    },
+    env: 'LOGGING_ANONYMIZATION',
+  },
+  rotation: {
+    doc: 'Log rotation configuration',
+    format: RotationConfigSchema,
+    default: {
+      enabled: true,
+      frequency: 'daily',
+      maxRetentionPeriod: 30,
+    },
+    env: 'LOGGING_ROTATION',
+  },
+  externalLoggingService: {
+    doc: 'External logging service configuration',
+    format: ExternalLoggingServiceSchema,
+    default: {
+      enabled: false,
+      type: 'elk',
+      endpoint: '',
+    },
+    env: 'LOGGING_EXTERNAL_SERVICE',
+  },
+  errorTracking: {
+    doc: 'Error tracking configuration',
+    format: ErrorTrackingConfigSchema,
+    default: {
+      enabled: false,
+      provider: 'sentry',
+      dsn: '',
+    },
+    env: 'LOGGING_ERROR_TRACKING',
+  },
 });
 
 /**
@@ -70,42 +145,16 @@ export type LoggingConfig = z.infer<typeof LoggingConfigSchema>;
  * @remarks
  * This object contains the parsed and validated logging configuration.
  */
-export const loggingConfig: LoggingConfig = LoggingConfigSchema.parse({
-  console: {
-    level: getEnvVar('LOGGING_CONSOLE_LEVEL', 'info'),
-    format: getEnvVar('LOGGING_CONSOLE_FORMAT', 'colorized'),
-    timestamp: getEnvVar('LOGGING_CONSOLE_TIMESTAMP', 'true') === 'true',
-  },
-  file: {
-    level: getEnvVar('LOGGING_FILE_LEVEL', 'info'),
-    format: getEnvVar('LOGGING_FILE_FORMAT', 'json'),
-    timestamp: getEnvVar('LOGGING_FILE_TIMESTAMP', 'true') === 'true',
-    filename: getEnvVar('LOGGING_FILE_FILENAME', 'app.log'),
-    maxsize: getEnvVar('LOGGING_FILE_MAXSIZE', '10485760'), // 10MB
-    maxFiles: getEnvVar('LOGGING_FILE_MAXFILES', '5'),
-  },
-  anonymization: {
-    enabled: getEnvVar('LOGGING_ANONYMIZATION_ENABLED', 'false') === 'true',
-    fields: parseJSON(
-      getEnvVar('LOGGING_ANONYMIZATION_FIELDS', '["email", "password", "creditCard"]')
-    ),
-  },
-  rotation: {
-    enabled: getEnvVar('LOGGING_ROTATION_ENABLED', 'true') === 'true',
-    frequency: getEnvVar('LOGGING_ROTATION_FREQUENCY', 'daily'),
-    maxRetentionPeriod: getEnvVar('LOGGING_ROTATION_MAX_RETENTION_PERIOD', '30'),
-  },
+export const loggingConfig = LoggingConfigSchema.validate({
+  // Load configuration from environment variables or use defaults
 });
 
 // Validate the configuration
 try {
-  LoggingConfigSchema.parse(loggingConfig);
+  LoggingConfigSchema.validate(loggingConfig);
 } catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Logging configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
+  if (error instanceof Error) {
+    console.error('Logging configuration validation failed:', error.message);
     throw new Error('Invalid logging configuration');
   }
   throw error;

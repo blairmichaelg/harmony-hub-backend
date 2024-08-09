@@ -1,8 +1,7 @@
 // src/config/FeatureFlagConfig.ts
 
+import convict from 'convict';
 import { z } from 'zod';
-
-import { getEnvVar } from '../utils/envUtils';
 
 /**
  * Schema for individual feature flag
@@ -42,9 +41,36 @@ const ABTestSchema = z
  * @remarks
  * This schema defines the structure and validation rules for the feature flag configuration.
  */
-export const FeatureFlagConfigSchema = z.object({
-  featureFlags: z.array(FeatureFlagSchema).describe('List of feature flags'),
-  abTests: z.array(ABTestSchema).describe('List of A/B tests'),
+const FeatureFlagConfigSchema = convict({
+  featureFlags: {
+    doc: 'List of feature flags',
+    format: z.array(FeatureFlagSchema),
+    default: [
+      {
+        name: 'advancedAudioProcessing',
+        enabled: false,
+        rolloutPercentage: 50,
+      },
+      {
+        name: 'collaborativeEditing',
+        enabled: false,
+        userSegments: ['premium', 'beta'],
+      },
+    ],
+    env: 'FEATURE_FLAGS',
+  },
+  abTests: {
+    doc: 'List of A/B tests',
+    format: z.array(ABTestSchema),
+    default: [
+      {
+        name: 'newUserInterface',
+        variants: ['control', 'variantA', 'variantB'],
+        distribution: [33, 33, 34],
+      },
+    ],
+    env: 'AB_TESTS',
+  },
 });
 
 /**
@@ -59,37 +85,16 @@ export type FeatureFlagConfig = z.infer<typeof FeatureFlagConfigSchema>;
  * @remarks
  * This object contains the parsed and validated feature flag configuration.
  */
-export const featureFlagConfig: FeatureFlagConfig = FeatureFlagConfigSchema.parse({
-  featureFlags: [
-    {
-      name: 'advancedAudioProcessing',
-      enabled: getEnvVar('FEATURE_ADVANCED_AUDIO_PROCESSING', 'false'),
-      rolloutPercentage: 50,
-    },
-    {
-      name: 'collaborativeEditing',
-      enabled: getEnvVar('FEATURE_COLLABORATIVE_EDITING', 'false'),
-      userSegments: ['premium', 'beta'],
-    },
-  ],
-  abTests: [
-    {
-      name: 'newUserInterface',
-      variants: ['control', 'variantA', 'variantB'],
-      distribution: [33, 33, 34],
-    },
-  ],
+export const featureFlagConfig = FeatureFlagConfigSchema.validate({
+  // Load configuration from environment variables or use defaults
 });
 
 // Validate the configuration
 try {
-  FeatureFlagConfigSchema.parse(featureFlagConfig);
+  FeatureFlagConfigSchema.validate(featureFlagConfig);
 } catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Feature flag configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
+  if (error instanceof Error) {
+    console.error('Feature flag configuration validation failed:', error.message);
     throw new Error('Invalid feature flag configuration');
   }
   throw error;

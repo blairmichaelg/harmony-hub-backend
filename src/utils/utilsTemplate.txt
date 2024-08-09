@@ -49,14 +49,16 @@ Here's a comprehensive list of consistencies that should be maintained across al
 12. Extensibility:
     - Design utilities to be easily extensible for future additions
 
-Here's a template that incorporates these consistencies:
+## Here's a template that incorporates these consistencies:
+
 
 ```typescript
 // src/utils/sampleUtil.ts
 
 import { z } from 'zod';
-import { relevantConfig } from '../config/RelevantConfig';
+import { config } from '../config';
 import { CustomError } from './errorUtils';
+import { logger } from './logging';
 
 /**
  * Schema for complex input type
@@ -83,15 +85,15 @@ export const processComplexInput = (input: ComplexInput): string => {
     ComplexInputSchema.parse(input);
 
     // Process the input using configuration
-    const result = `Processed ${input.field1} with config value ${relevantConfig.someValue}`;
+    const result = `Processed ${input.field1} with config value ${config.aiServices.someValue}`;
 
     return result;
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Input validation failed:', error.errors);
+      logger.error('Input validation failed:', error.errors);
       throw new CustomError('Invalid input', 'INVALID_INPUT', 400);
     }
-    console.error('Processing failed:', error);
+    logger.error('Processing failed:', error);
     throw new CustomError('Processing failed', 'PROCESSING_ERROR', 500);
   }
 };
@@ -108,7 +110,7 @@ export const memoizedExpensiveOperation = (() => {
     }
 
     // Simulate expensive operation
-    const result = input.length * relevantConfig.complexFactor;
+    const result = input.length * config.performance.complexFactor;
     cache.set(input, result);
 
     return result;
@@ -121,9 +123,39 @@ try {
   processComplexInput(sampleInput);
   memoizedExpensiveOperation('test');
 } catch (error) {
-  console.error('Utility function validation failed:', error);
+  logger.error('Utility function validation failed:', error);
   throw error;
 }
 ```
+
+This updated template maintains consistency with the project structure and the config module. Here are the key changes and consistencies:
+
+1. Imports:
+   - Import the `config` object from the config module instead of individual config files.
+   - Use the `logger` from the logging utility instead of `console.log`.
+
+2. Error Handling:
+   - Use the `CustomError` class from `errorUtils.ts`.
+   - Use the `logger` for error logging.
+
+3. Configuration Integration:
+   - Access configuration values through the `config` object (e.g., `config.aiServices.someValue`).
+
+4. File Structure:
+   - The template follows the structure seen in other utility files in the project.
+
+5. Naming Conventions:
+   - Function and variable names use camelCase, consistent with the project style.
+
+6. Type Definitions:
+   - Use Zod for schema definitions and type inference.
+
+7. Performance Considerations:
+   - The memoization example is retained, using a configuration value from the performance config.
+
+8. Validation:
+   - Input validation using Zod is implemented at the beginning of functions.
+
+This template ensures consistency across utility files and aligns with the config module and overall project structure. When creating new utility files or modifying existing ones, developers should follow this template and adapt it to the specific needs of each utility while maintaining the established conventions.
 
 This template and the list of consistencies should be applied across all utility files to ensure uniformity, maintainability, and consistency with your config module in your project.

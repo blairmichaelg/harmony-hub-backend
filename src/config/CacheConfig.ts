@@ -1,8 +1,7 @@
 // src/config/CacheConfig.ts
 
+import convict from 'convict';
 import { z } from 'zod';
-
-import { getEnvVar } from '../utils/envUtils';
 
 /**
  * Schema for cache provider configuration
@@ -20,60 +19,74 @@ const CacheProviderSchema = z.object({
  * @remarks
  * This schema defines the structure and validation rules for the cache configuration.
  */
-export const CacheConfigSchema = z
-  .object({
-    defaultProvider: z
-      .enum(['redis', 'memcached', 'local'])
-      .default('local')
-      .describe('Default cache provider'),
-    redis: CacheProviderSchema.extend({
+const CacheConfigSchema = convict({
+  defaultProvider: {
+    doc: 'Default cache provider',
+    format: ['redis', 'memcached', 'local'],
+    default: 'local',
+    env: 'CACHE_DEFAULT_PROVIDER',
+  },
+  redis: {
+    doc: 'Redis configuration',
+    format: CacheProviderSchema.extend({
       maxRetriesPerRequest: z.coerce
         .number()
         .int()
         .nonnegative()
         .default(3)
         .describe('Maximum retries per request'),
-    })
-      .optional()
-      .describe('Redis configuration'),
-    memcached: CacheProviderSchema.optional().describe('Memcached configuration'),
-    local: z
-      .object({
-        maxSize: z.coerce
-          .number()
-          .int()
-          .positive()
-          .default(100)
-          .describe('Local cache maximum size'),
-        ttl: z.coerce
-          .number()
-          .int()
-          .nonnegative()
-          .default(300)
-          .describe('Local cache TTL in seconds'),
-      })
-      .describe('Local cache configuration'),
-    distributedLock: z
-      .object({
-        ttl: z.coerce
-          .number()
-          .int()
-          .positive()
-          .default(30000)
-          .describe('Distributed lock TTL in milliseconds'),
-        retryDelay: z.coerce
-          .number()
-          .int()
-          .nonnegative()
-          .default(200)
-          .describe('Retry delay in milliseconds'),
-      })
-      .describe('Distributed lock configuration'),
-  })
-  .refine((data) => data.defaultProvider !== 'redis' || data.redis !== undefined, {
-    message: 'Redis must be configured when set as the default provider',
-    path: ['redis'],
-  });
+    }),
+    default: null,
+    env: 'CACHE_REDIS',
+  },
+  memcached: {
+    doc: 'Memcached configuration',
+    format: CacheProviderSchema,
+    default: null,
+    env: 'CACHE_MEMCACHED',
+  },
+  local: {
+    doc: 'Local cache configuration',
+    format: z.object({
+      maxSize: z.coerce.number().int().positive().default(100).describe('Local cache maximum size'),
+      ttl: z.coerce
+        .number()
+        .int()
+        .nonnegative()
+        .default(300)
+        .describe('Local cache TTL in seconds'),
+    }),
+    default: {
+      maxSize: 100,
+      ttl: 300,
+    },
+    env: 'CACHE_LOCAL',
+  },
+  distributedLock: {
+    doc: 'Distributed lock configuration',
+    format: z.object({
+      ttl: z.coerce
+        .number()
+        .int()
+        .positive()
+        .default(30000)
+        .describe('Distributed lock TTL in milliseconds'),
+      retryDelay: z.coerce
+        .number()
+        .int()
+        .nonnegative()
+        .default(200)
+        .describe('Retry delay in milliseconds'),
+    }),
+    default: {
+      ttl: 30000,
+      retryDelay: 200,
+    },
+    env: 'CACHE_DISTRIBUTED_LOCK',
+  },
+});
+
+CacheConfigSchema.validate({ allowed: 'strict' });
 
 /**
  * Type definition for the cache configuration
@@ -85,43 +98,17 @@ export type CacheConfig = z.infer<typeof CacheConfigSchema>;
  * @remarks
  * This object contains all the cache-related settings and is validated against CacheConfigSchema.
  */
-export const cacheConfig: CacheConfig = CacheConfigSchema.parse({
-  defaultProvider: getEnvVar('CACHE_DEFAULT_PROVIDER', 'local'),
-  redis: getEnvVar('REDIS_URL')
-    ? {
-        url: getEnvVar('REDIS_URL'),
-        ttl: getEnvVar('REDIS_TTL', '3600'),
-        maxSize: getEnvVar('REDIS_MAX_SIZE'),
-        maxRetriesPerRequest: getEnvVar('REDIS_MAX_RETRIES', '3'),
-      }
-    : undefined,
-  memcached: getEnvVar('MEMCACHED_URL')
-    ? {
-        url: getEnvVar('MEMCACHED_URL'),
-        ttl: getEnvVar('MEMCACHED_TTL', '3600'),
-        maxSize: getEnvVar('MEMCACHED_MAX_SIZE'),
-      }
-    : undefined,
-  local: {
-    maxSize: getEnvVar('LOCAL_CACHE_MAX_SIZE', '100'),
-    ttl: getEnvVar('LOCAL_CACHE_TTL', '300'),
-  },
-  distributedLock: {
-    ttl: getEnvVar('DISTRIBUTED_LOCK_TTL', '30000'),
-    retryDelay: getEnvVar('DISTRIBUTED_LOCK_RETRY_DELAY', '200'),
-  },
-});
+export const cacheConfig = CacheConfigSchema.validate({});
 
 // Validate the configuration
 try {
-  CacheConfigSchema.parse(cacheConfig);
+  CacheConfigSchema.validate(cacheConfig);
 } catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Cache configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
+  if (error instanceof Error) {
+    console.error('Cache configuration validation failed:', error.message);
     throw new Error('Invalid cache configuration');
   }
   throw error;
 }
+
+export default cacheConfig;

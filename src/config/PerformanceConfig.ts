@@ -2,9 +2,8 @@
 
 import { cpus } from 'os';
 
+import convict from 'convict';
 import { z } from 'zod';
-
-import { getEnvVar } from '../utils/envUtils';
 
 /**
  * Schema for caching configuration
@@ -53,16 +52,104 @@ const CdnConfigSchema = z.object({
 });
 
 /**
+ * Schema for database connection pooling configuration
+ */
+const DatabaseConnectionPoolingSchema = z.object({
+  enabled: z.coerce.boolean().describe('Enable database connection pooling'),
+  max: z.coerce.number().int().positive().describe('Maximum number of connections in the pool'),
+  min: z.coerce.number().int().nonnegative().describe('Minimum number of idle connections'),
+  idleTimeoutMillis: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .describe('Idle connection timeout in milliseconds'),
+});
+
+/**
+ * Schema for background job processing configuration
+ */
+const BackgroundJobProcessingSchema = z.object({
+  enabled: z.coerce.boolean().describe('Enable background job processing'),
+  concurrency: z.coerce.number().int().positive().describe('Number of concurrent workers'),
+  queue: z.string().describe('Name of the job queue'),
+});
+
+/**
  * Schema for performance configuration
  * @remarks
  * This schema defines the structure and validation rules for the performance configuration.
  */
-export const PerformanceConfigSchema = z.object({
-  caching: CachingConfigSchema.describe('Caching configuration'),
-  compression: CompressionConfigSchema.describe('Compression configuration'),
-  clustering: ClusteringConfigSchema.describe('Clustering configuration'),
-  loadBalancing: LoadBalancingConfigSchema.describe('Load balancing configuration'),
-  cdn: CdnConfigSchema.describe('CDN configuration'),
+const PerformanceConfigSchema = convict({
+  caching: {
+    doc: 'Caching configuration',
+    format: CachingConfigSchema,
+    default: {
+      enabled: true,
+      type: 'memory',
+      ttl: 3600, // 1 hour
+      maxItems: 1000,
+    },
+    env: 'PERF_CACHING',
+  },
+  compression: {
+    doc: 'Compression configuration',
+    format: CompressionConfigSchema,
+    default: {
+      enabled: true,
+      level: 6,
+      threshold: 1024, // 1KB
+    },
+    env: 'PERF_COMPRESSION',
+  },
+  clustering: {
+    doc: 'Clustering configuration',
+    format: ClusteringConfigSchema,
+    default: {
+      enabled: false,
+      numWorkers: cpus().length,
+    },
+    env: 'PERF_CLUSTERING',
+  },
+  loadBalancing: {
+    doc: 'Load balancing configuration',
+    format: LoadBalancingConfigSchema,
+    default: {
+      enabled: false,
+      strategy: 'round-robin',
+    },
+    env: 'PERF_LOAD_BALANCING',
+  },
+  cdn: {
+    doc: 'CDN configuration',
+    format: CdnConfigSchema,
+    default: {
+      enabled: false,
+      provider: 'cloudflare',
+      domain: '',
+    },
+    env: 'PERF_CDN',
+  },
+  databaseConnectionPooling: {
+    doc: 'Database connection pooling configuration',
+    format: DatabaseConnectionPoolingSchema,
+    default: {
+      enabled: true,
+      max: 10,
+      min: 2,
+      idleTimeoutMillis: 30000, // 30 seconds
+    },
+    env: 'PERF_DB_CONNECTION_POOLING',
+  },
+  backgroundJobProcessing: {
+    doc: 'Background job processing configuration',
+    format: BackgroundJobProcessingSchema,
+    default: {
+      enabled: false,
+      concurrency: 5,
+      queue: 'default',
+    },
+    env: 'PERF_BACKGROUND_JOB_PROCESSING',
+  },
 });
 
 /**
@@ -75,42 +162,16 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>;
  * @remarks
  * This object contains the parsed and validated performance configuration.
  */
-export const performanceConfig: PerformanceConfig = PerformanceConfigSchema.parse({
-  caching: {
-    enabled: getEnvVar('PERF_CACHING_ENABLED', 'true'),
-    type: getEnvVar('PERF_CACHING_TYPE', 'memory'),
-    ttl: getEnvVar('PERF_CACHING_TTL', '3600'), // 1 hour
-    maxItems: getEnvVar('PERF_CACHING_MAX_ITEMS', '1000'),
-  },
-  compression: {
-    enabled: getEnvVar('PERF_COMPRESSION_ENABLED', 'true'),
-    level: getEnvVar('PERF_COMPRESSION_LEVEL', '6'),
-    threshold: getEnvVar('PERF_COMPRESSION_THRESHOLD', '1024'), // 1KB
-  },
-  clustering: {
-    enabled: getEnvVar('PERF_CLUSTERING_ENABLED', 'false'),
-    numWorkers: getEnvVar('PERF_CLUSTERING_NUM_WORKERS', cpus().length.toString()),
-  },
-  loadBalancing: {
-    enabled: getEnvVar('PERF_LOAD_BALANCING_ENABLED', 'false'),
-    strategy: getEnvVar('PERF_LOAD_BALANCING_STRATEGY', 'round-robin'),
-  },
-  cdn: {
-    enabled: getEnvVar('PERF_CDN_ENABLED', 'false'),
-    provider: getEnvVar('PERF_CDN_PROVIDER', 'cloudflare'),
-    domain: getEnvVar('PERF_CDN_DOMAIN', ''),
-  },
+export const performanceConfig = PerformanceConfigSchema.validate({
+  // Load configuration from environment variables or use defaults
 });
 
 // Validate the configuration
 try {
-  PerformanceConfigSchema.parse(performanceConfig);
+  PerformanceConfigSchema.validate(performanceConfig);
 } catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Performance configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
+  if (error instanceof Error) {
+    console.error('Performance configuration validation failed:', error.message);
     throw new Error('Invalid performance configuration');
   }
   throw error;

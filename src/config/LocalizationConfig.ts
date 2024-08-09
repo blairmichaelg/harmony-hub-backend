@@ -1,8 +1,7 @@
 // src/config/LocalizationConfig.ts
 
+import convict from 'convict';
 import { z } from 'zod';
-
-import { getEnvVar, parseJSON } from '../utils/envUtils';
 
 /**
  * Schema for date and time format configuration
@@ -27,13 +26,79 @@ const NumberFormatSchema = z.object({
  * @remarks
  * This schema defines the structure and validation rules for the localization configuration.
  */
-export const LocalizationConfigSchema = z.object({
-  defaultLocale: z.string().describe('Default locale for the application'),
-  supportedLocales: z.array(z.string()).min(1).describe('List of supported locales'),
-  fallbackLocale: z.string().describe('Fallback locale when the requested locale is not available'),
-  translationFilePath: z.string().describe('Path to translation files'),
-  dateTimeFormat: DateTimeFormatSchema.describe('Date and time format settings'),
-  numberFormat: NumberFormatSchema.describe('Number format settings'),
+const LocalizationConfigSchema = convict({
+  defaultLocale: {
+    doc: 'Default locale for the application',
+    format: 'string',
+    default: 'en-US',
+    env: 'LOCALIZATION_DEFAULT_LOCALE',
+  },
+  supportedLocales: {
+    doc: 'List of supported locales',
+    format: Array,
+    default: ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP'],
+    env: 'LOCALIZATION_SUPPORTED_LOCALES',
+  },
+  fallbackLocale: {
+    doc: 'Fallback locale when the requested locale is not available',
+    format: 'string',
+    default: 'en-US',
+    env: 'LOCALIZATION_FALLBACK_LOCALE',
+  },
+  translationFilePath: {
+    doc: 'Path to translation files',
+    format: 'string',
+    default: './src/locales',
+    env: 'LOCALIZATION_TRANSLATION_FILE_PATH',
+  },
+  dateTimeFormat: {
+    doc: 'Date and time format settings',
+    format: DateTimeFormatSchema,
+    default: {
+      shortDate: 'yyyy-MM-dd',
+      longDate: 'MMMM dd, yyyy',
+      time: 'HH:mm:ss',
+    },
+    env: 'LOCALIZATION_DATE_TIME_FORMAT',
+  },
+  numberFormat: {
+    doc: 'Number format settings',
+    format: NumberFormatSchema,
+    default: {
+      currency: '$#,##0.00',
+      decimal: '.',
+      thousandsSeparator: ',',
+    },
+    env: 'LOCALIZATION_NUMBER_FORMAT',
+  },
+  languageDetection: {
+    doc: 'Language detection configuration',
+    format: z.object({
+      enabled: z.boolean().describe('Enable language detection'),
+      order: z.array(z.enum(['browser', 'ip'])).describe('Order of language detection methods'),
+    }),
+    default: {
+      enabled: false,
+      order: ['browser', 'ip'],
+    },
+    env: 'LOCALIZATION_LANGUAGE_DETECTION',
+  },
+  dynamicTranslationLoading: {
+    doc: 'Dynamic translation loading configuration',
+    format: z.object({
+      enabled: z.boolean().describe('Enable dynamic translation loading'),
+      cacheTtl: z.coerce
+        .number()
+        .int()
+        .nonnegative()
+        .describe('Cache TTL for loaded translations in seconds'),
+    }),
+    default: {
+      enabled: false,
+      cacheTtl: 3600, // 1 hour
+    },
+    env: 'LOCALIZATION_DYNAMIC_TRANSLATION_LOADING',
+  },
 });
 
 /**
@@ -41,41 +106,21 @@ export const LocalizationConfigSchema = z.object({
  */
 export type LocalizationConfig = z.infer<typeof LocalizationConfigSchema>;
 
-const DEFAULT_LOCALES = ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP'];
-
 /**
  * Localization configuration object
  * @remarks
  * This object contains the parsed and validated localization configuration.
  */
-export const localizationConfig: LocalizationConfig = LocalizationConfigSchema.parse({
-  defaultLocale: getEnvVar('LOCALIZATION_DEFAULT_LOCALE', 'en-US'),
-  supportedLocales: parseJSON(
-    getEnvVar('LOCALIZATION_SUPPORTED_LOCALES', JSON.stringify(DEFAULT_LOCALES))
-  ),
-  fallbackLocale: getEnvVar('LOCALIZATION_FALLBACK_LOCALE', 'en-US'),
-  translationFilePath: getEnvVar('LOCALIZATION_TRANSLATION_FILE_PATH', './src/locales'),
-  dateTimeFormat: {
-    shortDate: getEnvVar('LOCALIZATION_DATE_FORMAT_SHORT', 'yyyy-MM-dd'),
-    longDate: getEnvVar('LOCALIZATION_DATE_FORMAT_LONG', 'MMMM dd, yyyy'),
-    time: getEnvVar('LOCALIZATION_TIME_FORMAT', 'HH:mm:ss'),
-  },
-  numberFormat: {
-    currency: getEnvVar('LOCALIZATION_CURRENCY_FORMAT', '$#,##0.00'),
-    decimal: getEnvVar('LOCALIZATION_DECIMAL_SEPARATOR', '.'),
-    thousandsSeparator: getEnvVar('LOCALIZATION_THOUSANDS_SEPARATOR', ','),
-  },
+export const localizationConfig = LocalizationConfigSchema.validate({
+  // Load configuration from environment variables or use defaults
 });
 
 // Validate the configuration
 try {
-  LocalizationConfigSchema.parse(localizationConfig);
+  LocalizationConfigSchema.validate(localizationConfig);
 } catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Localization configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
+  if (error instanceof Error) {
+    console.error('Localization configuration validation failed:', error.message);
     throw new Error('Invalid localization configuration');
   }
   throw error;
