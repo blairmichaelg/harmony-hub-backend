@@ -39,6 +39,7 @@ const EnvConfigSchema = convict({
  * Interface definition for environment configuration
  */
 export interface IEnvironmentConfig {
+  parse(env: NodeJS.ProcessEnv): unknown;
   nodeEnv: 'development' | 'production' | 'test';
   port: number;
   logLevel: 'debug' | 'info' | 'warn' | 'error';
