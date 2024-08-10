@@ -6,19 +6,10 @@ import { z } from 'zod';
 /**
  * Schema for date and time format configuration
  */
-const DateTimeFormatSchema = z.object({
+z.object({
   shortDate: z.string().describe('Short date format'),
   longDate: z.string().describe('Long date format'),
   time: z.string().describe('Time format'),
-});
-
-/**
- * Schema for number format configuration
- */
-const NumberFormatSchema = z.object({
-  currency: z.string().describe('Currency format'),
-  decimal: z.string().describe('Decimal separator'),
-  thousandsSeparator: z.string().describe('Thousands separator'),
 });
 
 /**
@@ -27,97 +18,61 @@ const NumberFormatSchema = z.object({
  * This schema defines the structure and validation rules for the localization configuration.
  */
 const LocalizationConfigSchema = convict({
-  defaultLocale: {
-    doc: 'Default locale for the application',
-    format: 'string',
+  locale: {
+    doc: 'Locale for the application',
+    format: String,
     default: 'en-US',
-    env: 'LOCALIZATION_DEFAULT_LOCALE',
-  },
-  supportedLocales: {
-    doc: 'List of supported locales',
-    format: Array,
-    default: ['en-US', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP'],
-    env: 'LOCALIZATION_SUPPORTED_LOCALES',
-  },
-  fallbackLocale: {
-    doc: 'Fallback locale when the requested locale is not available',
-    format: 'string',
-    default: 'en-US',
-    env: 'LOCALIZATION_FALLBACK_LOCALE',
-  },
-  translationFilePath: {
-    doc: 'Path to translation files',
-    format: 'string',
-    default: './src/locales',
-    env: 'LOCALIZATION_TRANSLATION_FILE_PATH',
+    env: 'LOCALE',
   },
   dateTimeFormat: {
-    doc: 'Date and time format settings',
-    format: DateTimeFormatSchema,
+    doc: 'Date and time format configuration',
+    format: Object,
     default: {
-      shortDate: 'yyyy-MM-dd',
-      longDate: 'MMMM dd, yyyy',
+      shortDate: 'MM/DD/YYYY',
+      longDate: 'MMMM D, YYYY',
       time: 'HH:mm:ss',
     },
-    env: 'LOCALIZATION_DATE_TIME_FORMAT',
+    env: 'DATE_TIME_FORMAT',
   },
-  numberFormat: {
-    doc: 'Number format settings',
-    format: NumberFormatSchema,
-    default: {
-      currency: '$#,##0.00',
-      decimal: '.',
-      thousandsSeparator: ',',
-    },
-    env: 'LOCALIZATION_NUMBER_FORMAT',
+  timezone: {
+    doc: 'Timezone for the application',
+    format: String,
+    default: 'UTC',
+    env: 'TIMEZONE',
   },
-  languageDetection: {
-    doc: 'Language detection configuration',
-    format: z.object({
-      enabled: z.boolean().describe('Enable language detection'),
-      order: z.array(z.enum(['browser', 'ip'])).describe('Order of language detection methods'),
-    }),
-    default: {
-      enabled: false,
-      order: ['browser', 'ip'],
-    },
-    env: 'LOCALIZATION_LANGUAGE_DETECTION',
-  },
-  dynamicTranslationLoading: {
-    doc: 'Dynamic translation loading configuration',
-    format: z.object({
-      enabled: z.boolean().describe('Enable dynamic translation loading'),
-      cacheTtl: z.coerce
-        .number()
-        .int()
-        .nonnegative()
-        .describe('Cache TTL for loaded translations in seconds'),
-    }),
-    default: {
-      enabled: false,
-      cacheTtl: 3600, // 1 hour
-    },
-    env: 'LOCALIZATION_DYNAMIC_TRANSLATION_LOADING',
-  },
+  // Add more fields as needed for future extensibility
 });
 
 /**
- * Type definition for localization configuration
+ * Interface definition for date and time format configuration
  */
-export type LocalizationConfig = z.infer<typeof LocalizationConfigSchema>;
+export interface IDateTimeFormat {
+  shortDate: string;
+  longDate: string;
+  time: string;
+}
+
+/**
+ * Interface definition for localization configuration
+ */
+export interface ILocalizationConfig {
+  locale: string;
+  dateTimeFormat: IDateTimeFormat;
+  timezone: string;
+}
 
 /**
  * Localization configuration object
  * @remarks
  * This object contains the parsed and validated localization configuration.
  */
-export const localizationConfig = LocalizationConfigSchema.validate({
-  // Load configuration from environment variables or use defaults
-});
+const config = LocalizationConfigSchema.getProperties();
+
+export const localizationConfig: ILocalizationConfig = config as unknown as ILocalizationConfig;
 
 // Validate the configuration
 try {
-  LocalizationConfigSchema.validate(localizationConfig);
+  LocalizationConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
     console.error('Localization configuration validation failed:', error.message);

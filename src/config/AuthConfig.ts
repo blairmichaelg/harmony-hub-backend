@@ -1,162 +1,82 @@
-// src/config/AuthConfig.ts
-
-import convict from 'convict';
 import { z } from 'zod';
 
-/**
- * Schema for JWT configuration
- * @remarks
- * Defines the structure and validation rules for JWT settings.
- */
-const JWTConfigSchema = z.object({
-  secret: z.string().min(32).describe('JWT secret key, must be at least 32 characters long'),
-  expiresIn: z.string().describe('JWT expiration time'),
-  algorithm: z
-    .enum(['HS256', 'HS384', 'HS512', 'RS256', 'RS384', 'RS512'])
-    .describe('JWT signing algorithm'),
+// Define the schema for the AuthConfig
+export const AuthConfigSchema = z.object({
+  jwt: z.object({
+    secret: z.string().nonempty({
+      message: 'JWT secret must be provided',
+    }),
+    expiresIn: z.string().default('1h'),
+  }),
+  oauth2: z.object({
+    enabled: z.boolean().default(false),
+    providers: z
+      .record(
+        z.object({
+          clientId: z.string().nonempty(),
+          clientSecret: z.string().nonempty(),
+          callbackURL: z.string().url(),
+        })
+      )
+      .default({}),
+  }),
+  twoFactorAuthentication: z.object({
+    enabled: z.boolean().default(false),
+    providers: z.array(z.enum(['email', 'sms', 'authenticator'])).default([]),
+  }),
+  rateLimiting: z.object({
+    maxRequests: z.number().int().positive().default(100),
+    windowMs: z
+      .number()
+      .int()
+      .positive()
+      .default(15 * 60 * 1000), // 15 minutes
+  }),
+  cors: z.object({
+    origin: z.array(z.string()).default(['*']),
+    methods: z
+      .array(z.enum(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']))
+      .default(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']),
+  }),
+  helmet: z.object({
+    contentSecurityPolicy: z.boolean().default(true),
+    xssFilter: z.boolean().default(true),
+  }),
+  enableSSL: z.boolean().default(false),
 });
 
-/**
- * Schema for OAuth provider configuration
- * @remarks
- * Defines the structure and validation rules for OAuth providers.
- */
-const OAuthProviderSchema = z.object({
-  clientId: z.string().min(1).describe('OAuth client ID'),
-  clientSecret: z.string().min(1).describe('OAuth client secret'),
-  callbackURL: z.string().url().describe('OAuth callback URL'),
-  scope: z.array(z.string()).default([]).describe('OAuth scopes'),
-});
-
-/**
- * Schema for the entire authentication configuration
- * @remarks
- * This schema defines the structure and validation rules for the authentication configuration.
- */
-const AuthConfigSchema = convict({
-  jwt: {
-    doc: 'JWT configuration',
-    format: JWTConfigSchema,
-    default: {
-      secret:
-        process.env.NODE_ENV === 'production'
-          ? '' // Generate a strong secret in production
-          : 'default-secret-key-for-development-only',
-      expiresIn: '1d',
-      algorithm: 'HS256',
-    },
-    env: 'AUTH_JWT',
-  },
-  passwordHashing: {
-    doc: 'Password hashing configuration',
-    format: z.object({
-      saltRounds: z.coerce
-        .number()
-        .int()
-        .positive()
-        .describe('Number of salt rounds for password hashing'),
-      pepper: z.string().optional().describe('Optional pepper for password hashing'),
-    }),
-    default: {
-      saltRounds: 10,
-      pepper: '',
-    },
-    env: 'AUTH_PASSWORD_HASHING',
-  },
-  sessionConfig: {
-    doc: 'Session configuration',
-    format: z.object({
-      secret: z.string().min(32).describe('Session secret, must be at least 32 characters long'),
-      resave: z.boolean().describe('Whether to resave unchanged sessions'),
-      saveUninitialized: z.boolean().describe('Whether to save uninitialized sessions'),
-      cookie: z.object({
-        secure: z.boolean().describe('Whether to use secure cookies'),
-        maxAge: z.coerce
-          .number()
-          .int()
-          .positive()
-          .describe('Maximum age of the session cookie in milliseconds'),
-      }),
-    }),
-    default: {
-      secret:
-        process.env.NODE_ENV === 'production'
-          ? '' // Generate a strong secret in production
-          : 'default-session-secret-for-development-only',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        secure: true,
-        maxAge: 86400000, // 1 day
-      },
-    },
-    env: 'AUTH_SESSION',
-  },
-  rateLimiting: {
-    doc: 'Rate limiting configuration',
-    format: z.object({
-      windowMs: z.coerce.number().int().positive().describe('Rate limiting window in milliseconds'),
-      max: z.coerce
-        .number()
-        .int()
-        .positive()
-        .describe('Maximum number of requests within the rate limiting window'),
-    }),
-    default: {
-      windowMs: 900000, // 15 minutes
-      max: 100,
-    },
-    env: 'AUTH_RATE_LIMITING',
-  },
-  oauth: {
-    doc: 'OAuth provider configurations',
-    format: z.object({
-      google: OAuthProviderSchema.optional().describe('Google OAuth configuration'),
-      facebook: OAuthProviderSchema.optional().describe('Facebook OAuth configuration'),
-      github: OAuthProviderSchema.optional().describe('GitHub OAuth configuration'),
-    }),
-    default: {
-      google: null,
-      facebook: null,
-      github: null,
-    },
-    env: 'AUTH_OAUTH',
-  },
-  twoFactor: {
-    doc: 'Two-factor authentication configuration',
-    format: z.object({
-      enabled: z.boolean().describe('Whether two-factor authentication is enabled'),
-      issuer: z.string().describe('Issuer name for two-factor authentication'),
-    }),
-    default: {
-      enabled: false,
-      issuer: 'YourAppName',
-    },
-    env: 'AUTH_TWO_FACTOR',
-  },
-});
-
-/**
- * Type definition for the authentication configuration
- */
+// Define the AuthConfig type
 export type AuthConfig = z.infer<typeof AuthConfigSchema>;
 
-/**
- * The authentication configuration object
- * @remarks
- * This object contains all the authentication-related settings and is validated against AuthConfigSchema.
- */
-export const authConfig = AuthConfigSchema.validate({});
-
-// Validate the configuration
-try {
-  AuthConfigSchema.validate(authConfig);
-} catch (error) {
-  if (error instanceof Error) {
-    console.error('Authentication configuration validation failed:', error.message);
-    throw new Error('Invalid authentication configuration');
-  }
-  throw error;
-}
-
-export default authConfig;
+// Load the configuration from environment variables
+export const authConfig: AuthConfig = AuthConfigSchema.parse({
+  jwt: {
+    secret: process.env.JWT_SECRET || '',
+    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+  },
+  oauth2: {
+    enabled: process.env.OAUTH2_ENABLED === 'true',
+    providers: process.env.OAUTH2_PROVIDERS ? JSON.parse(process.env.OAUTH2_PROVIDERS) : {},
+  },
+  twoFactorAuthentication: {
+    enabled: process.env.TWO_FACTOR_AUTH_ENABLED === 'true',
+    providers: process.env.TWO_FACTOR_AUTH_PROVIDERS
+      ? process.env.TWO_FACTOR_AUTH_PROVIDERS.split(',')
+      : [],
+  },
+  rateLimiting: {
+    maxRequests: parseInt(process.env.RATE_LIMITING_MAX_REQUESTS || '100', 10),
+    windowMs: parseInt(process.env.RATE_LIMITING_WINDOW_MS || (15 * 60 * 1000).toString(), 10),
+  },
+  cors: {
+    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['*'],
+    methods: process.env.CORS_METHODS
+      ? process.env.CORS_METHODS.split(',')
+      : ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  },
+  helmet: {
+    contentSecurityPolicy: process.env.HELMET_CONTENT_SECURITY_POLICY === 'true',
+    xssFilter: process.env.HELMET_XSS_FILTER === 'true',
+  },
+  enableSSL: process.env.ENABLE_SSL === 'true',
+});

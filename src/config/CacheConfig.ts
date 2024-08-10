@@ -10,105 +10,38 @@ import { z } from 'zod';
  */
 const CacheProviderSchema = z.object({
   url: z.string().url().describe('Cache provider URL'),
-  ttl: z.coerce.number().int().nonnegative().default(3600).describe('Time-to-live in seconds'),
-  maxSize: z.coerce.number().int().positive().optional().describe('Maximum cache size'),
+  ttl: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(3600)
+    .describe('Time-to-live for cache entries in seconds'),
+  maxSize: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1000)
+    .describe('Maximum number of items in the cache'),
+  enableLogging: z.boolean().default(true).describe('Enable logging for cache operations'),
+  // Add more fields as needed for future extensibility
 });
 
 /**
- * Schema for the entire cache configuration
- * @remarks
- * This schema defines the structure and validation rules for the cache configuration.
+ * Configuration schema for the caching system
  */
-const CacheConfigSchema = convict({
-  defaultProvider: {
-    doc: 'Default cache provider',
-    format: ['redis', 'memcached', 'local'],
-    default: 'local',
-    env: 'CACHE_DEFAULT_PROVIDER',
-  },
-  redis: {
-    doc: 'Redis configuration',
-    format: CacheProviderSchema.extend({
-      maxRetriesPerRequest: z.coerce
-        .number()
-        .int()
-        .nonnegative()
-        .default(3)
-        .describe('Maximum retries per request'),
-    }),
-    default: null,
-    env: 'CACHE_REDIS',
-  },
-  memcached: {
-    doc: 'Memcached configuration',
+const cacheConfigSchema = convict({
+  cacheProvider: {
+    doc: 'Cache provider configuration',
     format: CacheProviderSchema,
-    default: null,
-    env: 'CACHE_MEMCACHED',
-  },
-  local: {
-    doc: 'Local cache configuration',
-    format: z.object({
-      maxSize: z.coerce.number().int().positive().default(100).describe('Local cache maximum size'),
-      ttl: z.coerce
-        .number()
-        .int()
-        .nonnegative()
-        .default(300)
-        .describe('Local cache TTL in seconds'),
-    }),
     default: {
-      maxSize: 100,
-      ttl: 300,
+      url: 'http://localhost:6379',
+      ttl: 3600,
+      maxSize: 1000,
+      enableLogging: true,
     },
-    env: 'CACHE_LOCAL',
+    env: 'CACHE_PROVIDER',
   },
-  distributedLock: {
-    doc: 'Distributed lock configuration',
-    format: z.object({
-      ttl: z.coerce
-        .number()
-        .int()
-        .positive()
-        .default(30000)
-        .describe('Distributed lock TTL in milliseconds'),
-      retryDelay: z.coerce
-        .number()
-        .int()
-        .nonnegative()
-        .default(200)
-        .describe('Retry delay in milliseconds'),
-    }),
-    default: {
-      ttl: 30000,
-      retryDelay: 200,
-    },
-    env: 'CACHE_DISTRIBUTED_LOCK',
-  },
+  // Add more configuration options as needed
 });
 
-CacheConfigSchema.validate({ allowed: 'strict' });
-
-/**
- * Type definition for the cache configuration
- */
-export type CacheConfig = z.infer<typeof CacheConfigSchema>;
-
-/**
- * The cache configuration object
- * @remarks
- * This object contains all the cache-related settings and is validated against CacheConfigSchema.
- */
-export const cacheConfig = CacheConfigSchema.validate({});
-
-// Validate the configuration
-try {
-  CacheConfigSchema.validate(cacheConfig);
-} catch (error) {
-  if (error instanceof Error) {
-    console.error('Cache configuration validation failed:', error.message);
-    throw new Error('Invalid cache configuration');
-  }
-  throw error;
-}
-
-export default cacheConfig;
+export { cacheConfigSchema };

@@ -1,7 +1,6 @@
 // src/config/EnvironmentConfig.ts
 
 import convict from 'convict';
-import { z } from 'zod';
 
 /**
  * Schema for environment configuration
@@ -16,82 +15,48 @@ const EnvConfigSchema = convict({
     env: 'NODE_ENV',
   },
   port: {
-    doc: 'Server port',
+    doc: 'The port the application runs on',
     format: 'port',
     default: 3000,
     env: 'PORT',
   },
   logLevel: {
     doc: 'Logging level',
-    format: ['error', 'warn', 'info', 'http', 'verbose', 'debug', 'silly'],
+    format: ['debug', 'info', 'warn', 'error'],
     default: 'info',
     env: 'LOG_LEVEL',
   },
-  databaseUrl: {
-    doc: 'Database connection URL',
-    format: 'url',
-    default: '', // Set a default value or require this variable
-    env: 'DATABASE_URL',
-    sensitive: true,
+  apiPrefix: {
+    doc: 'API prefix for routing',
+    format: String,
+    default: '/api',
+    env: 'API_PREFIX',
   },
-  redisUrl: {
-    doc: 'Redis connection URL',
-    format: 'url',
-    default: '', // Set a default value or require this variable
-    env: 'REDIS_URL',
-    sensitive: true,
-  },
-  jwtSecret: {
-    doc: 'JWT secret key',
-    format: 'string',
-    default:
-      process.env.NODE_ENV === 'production'
-        ? '' // Generate a strong secret in production
-        : 'default-secret-key-for-development-only',
-    env: 'JWT_SECRET',
-    sensitive: true,
-  },
-  aws: {
-    accessKeyId: {
-      doc: 'AWS access key ID',
-      format: 'string',
-      default: '',
-      env: 'AWS_ACCESS_KEY_ID',
-      sensitive: true,
-    },
-    secretAccessKey: {
-      doc: 'AWS secret access key',
-      format: 'string',
-      default: '',
-      env: 'AWS_SECRET_ACCESS_KEY',
-      sensitive: true,
-    },
-    region: {
-      doc: 'AWS region',
-      format: 'string',
-      default: '',
-      env: 'AWS_REGION',
-    },
-  },
+  // Add more fields as needed for future extensibility
 });
 
 /**
- * Type definition for environment configuration
+ * Interface definition for environment configuration
  */
-export type EnvConfig = z.infer<typeof EnvConfigSchema>;
+export interface IEnvironmentConfig {
+  nodeEnv: 'development' | 'production' | 'test';
+  port: number;
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
+  apiPrefix: string;
+}
 
 /**
  * Environment configuration object
  * @remarks
  * This object contains the parsed and validated environment configuration.
  */
-export const envConfig = EnvConfigSchema.validate({
-  // Load configuration from environment variables or use defaults
-});
+const config = EnvConfigSchema.getProperties();
+
+export const environmentConfig: IEnvironmentConfig = config as unknown as IEnvironmentConfig;
 
 // Validate the configuration
 try {
-  EnvConfigSchema.validate(envConfig);
+  EnvConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
     console.error('Environment configuration validation failed:', error.message);
@@ -100,4 +65,4 @@ try {
   throw error;
 }
 
-export default envConfig;
+export default environmentConfig;

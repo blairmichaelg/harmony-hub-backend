@@ -1,7 +1,6 @@
 // src/config/RedisConfig.ts
 
 import convict from 'convict';
-import { z } from 'zod';
 
 /**
  * Schema for Redis configuration
@@ -11,7 +10,7 @@ import { z } from 'zod';
 const RedisConfigSchema = convict({
   host: {
     doc: 'Redis server host',
-    format: 'string',
+    format: String,
     default: 'localhost',
     env: 'REDIS_HOST',
   },
@@ -22,100 +21,43 @@ const RedisConfigSchema = convict({
     env: 'REDIS_PORT',
   },
   password: {
-    doc: 'Redis server password',
-    format: 'string',
+    doc: 'Password for Redis server',
+    format: String,
     default: '',
     env: 'REDIS_PASSWORD',
     sensitive: true,
   },
   db: {
-    doc: 'Redis database number',
-    format: 'nat',
+    doc: 'Redis database index',
+    format: 'int',
     default: 0,
     env: 'REDIS_DB',
   },
-  tls: {
-    doc: 'Enable TLS for Redis connection',
-    format: 'Boolean',
-    default: false,
-    env: 'REDIS_TLS',
-  },
-  connectTimeout: {
-    doc: 'Connection timeout in milliseconds',
-    format: 'nat',
-    default: 10000,
-    env: 'REDIS_CONNECT_TIMEOUT',
-  },
-  maxRetriesPerRequest: {
-    doc: 'Maximum number of retries per request',
-    format: 'nat',
-    default: 3,
-    env: 'REDIS_MAX_RETRIES',
-  },
-  enableReadyCheck: {
-    doc: 'Enable ready check before operations',
-    format: 'Boolean',
-    default: true,
-    env: 'REDIS_ENABLE_READY_CHECK',
-  },
-  keyPrefix: {
-    doc: 'Prefix for all Redis keys',
-    format: 'string',
-    default: 'harmonyhub:',
-    env: 'REDIS_KEY_PREFIX',
-  },
-  sentinel: {
-    doc: 'Redis Sentinel configuration',
-    format: z.object({
-      enabled: z.boolean().describe('Enable Redis Sentinel'),
-      nodes: z
-        .array(
-          z.object({
-            host: z.string().describe('Sentinel node host'),
-            port: z.number().int().positive().describe('Sentinel node port'),
-          })
-        )
-        .describe('List of Sentinel nodes'),
-      name: z.string().describe('Sentinel master group name'),
-    }),
-    default: {
-      enabled: false,
-      nodes: [],
-      name: '',
-    },
-    env: 'REDIS_SENTINEL',
-  },
-  cluster: {
-    doc: 'Redis Cluster configuration',
-    format: z.object({
-      enabled: z.boolean().describe('Enable Redis Cluster'),
-      nodes: z
-        .array(
-          z.object({
-            host: z.string().describe('Cluster node host'),
-            port: z.number().int().positive().describe('Cluster node port'),
-          })
-        )
-        .describe('List of Cluster nodes'),
-    }),
-    default: {
-      enabled: false,
-      nodes: [],
-    },
-    env: 'REDIS_CLUSTER',
-  },
+  // Add more fields as needed for future extensibility
 });
 
-export type RedisConfig = z.infer<typeof RedisConfigSchema>;
+/**
+ * Interface definition for Redis configuration
+ */
+export interface IRedisConfig {
+  host: string;
+  port: number;
+  password: string;
+  db: number;
+}
 
-// Create and validate the configuration object
-export const redisConfig = RedisConfigSchema.validate({
-  // Load configuration from environment variables or use defaults
-});
+/**
+ * Redis configuration object
+ * @remarks
+ * This object contains the parsed and validated Redis configuration.
+ */
+const config = RedisConfigSchema.getProperties();
+
+export const redisConfig: IRedisConfig = config as unknown as IRedisConfig;
 
 // Validate the configuration
 try {
-  RedisConfigSchema.validate(redisConfig);
+  RedisConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
     console.error('Redis configuration validation failed:', error.message);

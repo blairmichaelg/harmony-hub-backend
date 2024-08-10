@@ -1,7 +1,4 @@
-// src/config/DatabaseConfig.ts
-
 import convict from 'convict';
-import { z } from 'zod';
 
 /**
  * Schema for database configuration
@@ -60,21 +57,33 @@ const DatabaseConfigSchema = convict({
       env: 'DB_MIGRATIONS_TABLE',
     },
   },
+  // Add more fields as needed for future extensibility
 });
 
 /**
- * Type definition for database configuration
+ * Interface definition for database configuration
  */
-export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
+export interface IDatabaseConfig {
+  type: 'postgres' | 'mongodb';
+  url: string;
+  maxConnections: number;
+  connectionLimit: number;
+  idleTimeoutMillis: number;
+  connectionTimeoutMillis: number;
+  migrations: {
+    directory: string;
+    tableName: string;
+  };
+}
 
 /**
  * Database configuration object
  * @remarks
  * This object contains the parsed and validated database configuration.
  */
-export const databaseConfig = DatabaseConfigSchema.validate({
-  // Load configuration from environment variables or use defaults
-});
+const config = DatabaseConfigSchema.getProperties();
+
+export const databaseConfig: IDatabaseConfig = config as unknown as IDatabaseConfig;
 
 /**
  * Connects to the database based on the configuration
@@ -91,7 +100,7 @@ export const connectDB = async (): Promise<void> => {
         serverSelectionTimeoutMS: databaseConfig.connectionTimeoutMillis,
       });
 
-      console.log(`MongoDB Connected: ${conn.connection.host}`);
+      console.error(`MongoDB Connected: ${conn.connection.host}`);
     } else {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { Pool } = require('pg');
@@ -103,7 +112,7 @@ export const connectDB = async (): Promise<void> => {
       });
       const client = await pool.connect();
 
-      console.log('PostgreSQL Connected');
+      console.error('PostgreSQL Connected');
       client.release();
     }
   } catch (error) {
@@ -114,7 +123,7 @@ export const connectDB = async (): Promise<void> => {
 
 // Validate the configuration
 try {
-  DatabaseConfigSchema.validate(databaseConfig);
+  DatabaseConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
     console.error('Database configuration validation failed:', error.message);

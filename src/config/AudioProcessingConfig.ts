@@ -1,7 +1,7 @@
 // src/config/AudioProcessingConfig.ts
 
 import convict from 'convict';
-import { z } from 'zod';
+import * as z from 'zod';
 
 // Define the configuration schema
 const audioFormatSchema = z.object({
@@ -230,7 +230,7 @@ const AudioProcessingConfigSchema = convict({
   },
 });
 
-export type AudioProcessingConfig = z.infer<typeof AudioProcessingConfigSchema>;
+export type AudioProcessingConfig = typeof AudioProcessingConfigSchema;
 
 // Create and validate the configuration object
 export const audioProcessingConfig = AudioProcessingConfigSchema.validate({

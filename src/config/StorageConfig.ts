@@ -1,95 +1,68 @@
 // src/config/StorageConfig.ts
 
 import convict from 'convict';
-import { z } from 'zod';
 
-// Define the configuration schema
-const S3ProviderSchema = z.object({
-  type: z.literal('s3').describe('Storage provider type'),
-  bucket: z.string().describe('S3 bucket name'),
-  region: z.string().describe('AWS region'),
-  accessKeyId: z.string().describe('AWS access key ID'),
-  secretAccessKey: z.string().describe('AWS secret access key'),
-});
-
-const GCSProviderSchema = z.object({
-  type: z.literal('gcs').describe('Storage provider type'),
-  bucket: z.string().describe('GCS bucket name'),
-  projectId: z.string().describe('GCP project ID'),
-  clientEmail: z.string().email().describe('GCP client email'),
-  privateKey: z.string().describe('GCP private key'),
-});
-
-const LocalProviderSchema = z.object({
-  type: z.literal('local').describe('Storage provider type'),
-  basePath: z.string().describe('Base path for local storage'),
-});
-
-const StorageProviderSchema = z.discriminatedUnion('type', [
-  S3ProviderSchema,
-  GCSProviderSchema,
-  LocalProviderSchema,
-]);
-
+/**
+ * Schema for storage configuration
+ * @remarks
+ * This schema defines the structure and validation rules for the storage configuration.
+ */
 const StorageConfigSchema = convict({
   provider: {
-    doc: 'Storage provider configuration',
-    format: StorageProviderSchema,
-    default: {
-      type: 'local',
-      basePath: './uploads',
-    },
+    doc: 'Storage provider (e.g., local, s3)',
+    format: ['local', 's3'],
+    default: 'local',
     env: 'STORAGE_PROVIDER',
   },
-  uploadLimits: {
-    maxFileSize: {
-      doc: 'Maximum file size in bytes',
-      format: 'number',
-      default: 5242880, // 5MB
-      env: 'MAX_FILE_SIZE',
-    },
-    allowedMimeTypes: {
-      doc: 'Allowed MIME types for uploads',
-      format: Array,
-      default: ['image/*', 'application/pdf'],
-      env: 'ALLOWED_MIME_TYPES',
-    },
+  localPath: {
+    doc: 'Local storage path',
+    format: String,
+    default: './data',
+    env: 'LOCAL_STORAGE_PATH',
   },
-  projectStorage: {
-    enabled: {
-      doc: 'Enable project-based storage organization',
-      format: 'Boolean',
-      default: false,
-      env: 'STORAGE_PROJECT_BASED_ENABLED',
-    },
-    defaultQuota: {
-      doc: 'Default storage quota per project in bytes',
-      format: 'number',
-      default: 1073741824, // 1GB
-      env: 'STORAGE_PROJECT_DEFAULT_QUOTA',
-    },
+  s3Bucket: {
+    doc: 'S3 bucket name',
+    format: String,
+    default: '',
+    env: 'S3_BUCKET',
   },
-  versioning: {
-    enabled: {
-      doc: 'Enable file versioning',
-      format: 'Boolean',
-      default: false,
-      env: 'STORAGE_VERSIONING_ENABLED',
-    },
-    maxVersions: {
-      doc: 'Maximum number of versions to keep per file',
-      format: 'nat',
-      default: 5,
-      env: 'STORAGE_VERSIONING_MAX_VERSIONS',
-    },
+  s3Region: {
+    doc: 'S3 region',
+    format: String,
+    default: '',
+    env: 'S3_REGION',
   },
+  // Add more fields as needed for future extensibility
 });
 
-export type StorageConfig = z.infer<typeof StorageConfigSchema>;
+/**
+ * Interface definition for storage configuration
+ */
+export interface IStorageConfig {
+  provider: 'local' | 's3';
+  localPath: string;
+  s3Bucket: string;
+  s3Region: string;
+}
 
-// Create and validate the configuration object
-export const storageConfig = StorageConfigSchema.validate({
-  // Load configuration from environment variables or use defaults
-});
+/**
+ * Storage configuration object
+ * @remarks
+ * This object contains the parsed and validated storage configuration.
+ */
+const config = StorageConfigSchema.getProperties();
+
+export const storageConfig: IStorageConfig = config as unknown as IStorageConfig;
+
+// Validate the configuration
+try {
+  StorageConfigSchema.validate({ allowed: 'strict' });
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('Storage configuration validation failed:', error.message);
+    throw new Error('Invalid storage configuration');
+  }
+  throw error;
+}
 
 export default storageConfig;
