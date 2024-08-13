@@ -44,14 +44,3 @@ export {
   validateAudioProcessingOptions,
   validateFileSize,
 };
-
-/**
- * Centralized validation module
- *
- * This module exports all validation schemas, functions, and types
- * related to audio processing. It serves as a single point of import
- * for all validation-related functionality in the project.
- *
- * Usage:
- * import { validateAudioMetadata, AudioProcessingOptionsSchema } from '../utils/validation';
- */

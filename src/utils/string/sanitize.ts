@@ -4,14 +4,19 @@ import DOMPurify from 'dompurify';
 import { z } from 'zod';
 
 import { loggingConfig } from '../../config/LoggingConfig';
-import logger from '../logging';
 
 /**
  * Schema for sanitization options
  */
 const SanitizeOptionsSchema = z.object({
-  ALLOWED_TAGS: z.array(z.string()).optional().describe('List of allowed HTML tags'),
-  ALLOWED_ATTR: z.array(z.string()).optional().describe('List of allowed HTML attributes'),
+  ALLOWED_TAGS: z
+    .array(z.string())
+    .optional()
+    .describe('List of allowed HTML tags'),
+  ALLOWED_ATTR: z
+    .array(z.string())
+    .optional()
+    .describe('List of allowed HTML attributes'),
 });
 
 type SanitizeOptions = z.infer<typeof SanitizeOptionsSchema>;
@@ -34,16 +39,15 @@ export const sanitizeForSearch = (str: string): string => {
  * @param {SanitizeOptions} options - Options for HTML sanitization
  * @returns {string} The sanitized HTML string
  */
-export const sanitizeHTML = (html: string, options?: SanitizeOptions): string => {
-  try {
-    const validatedOptions = SanitizeOptionsSchema.parse(options);
-
-    return DOMPurify.sanitize(html, validatedOptions as DOMPurify.Config).toString();
-  } catch (error) {
-    logger.error('HTML sanitization failed:', error);
-
-    return '';
-  }
+export const sanitizeHTML = (
+  html: string,
+  options?: SanitizeOptions,
+): string => {
+  const validatedOptions = SanitizeOptionsSchema.parse(options);
+  return DOMPurify.sanitize(
+    html,
+    validatedOptions as DOMPurify.Config,
+  ).toString();
 };
 
 /**
@@ -52,15 +56,14 @@ export const sanitizeHTML = (html: string, options?: SanitizeOptions): string =>
  * @returns {string} The anonymized log string
  */
 export const anonymizeLogData = (str: string): string => {
-  if (!loggingConfig.anonymization.enabled) {
+  if (!loggingConfig.anonymization?.enabled) {
     return str;
   }
 
   let anonymizedStr = str;
 
-  loggingConfig.anonymization.fields.forEach((field) => {
+  loggingConfig.anonymization.fields.forEach((field: any) => {
     const regex = new RegExp(`(${field}=)([^&\\s]+)`, 'gi');
-
     anonymizedStr = anonymizedStr.replace(regex, `$1****`);
   });
 
@@ -74,19 +77,8 @@ export const anonymizeLogData = (str: string): string => {
  */
 export const sanitizeFilename = (filename: string): string => {
   return filename
-    .replace(/[^a-zA-Z0-9-_.]/g, '_') // Replace any character that's not alphanumeric, dash, underscore, or dot with an underscore
-    .replace(/_{2,}/g, '_') // Replace multiple consecutive underscores with a single one
-    .replace(/^_+|_+$/g, '') // Remove leading and trailing underscores
-    .toLowerCase(); // Convert to lowercase
+    .replace(/[^a-zA-Z0-9-_.]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
 };
-
-// Validate the utility functions
-try {
-  sanitizeForSearch('Test@123');
-  sanitizeHTML('<p>Test</p>', { ALLOWED_TAGS: ['p'] });
-  anonymizeLogData('email=test@example.com&password=secret');
-  sanitizeFilename('File Name! @#$.txt');
-} catch (error) {
-  logger.error('String sanitization utility function validation failed:', error);
-  throw error;
-}

@@ -181,8 +181,16 @@ import { getEnvVar, parseJSON } from '../utils/envUtils';
  */
 export const SampleConfigSchema = z.object({
   featureName: z.string().describe('Name of the feature'),
-  isEnabled: z.coerce.boolean().default(false).describe('Whether the feature is enabled'),
-  maxItems: z.coerce.number().int().positive().default(10).describe('Maximum number of items'),
+  isEnabled: z.coerce
+    .boolean()
+    .default(false)
+    .describe('Whether the feature is enabled'),
+  maxItems: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10)
+    .describe('Maximum number of items'),
   apiUrl: z.string().url().describe('API endpoint URL'),
   secretKey: z.string().min(32).describe('Secret key for API authentication'),
 });

@@ -9,7 +9,9 @@ import logger from './logging';
  * @param {() => T} fn - The function to measure
  * @returns {Promise<[T, number]>} A promise resolving to the function result and execution time in milliseconds
  */
-export const measureExecutionTime = async <T>(fn: () => Promise<T>): Promise<[T, number]> => {
+export const measureExecutionTime = async <T>(
+  fn: () => Promise<T>,
+): Promise<[T, number]> => {
   const startTime = performance.now();
   const result = await fn();
   const endTime = performance.now();

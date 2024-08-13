@@ -3,23 +3,25 @@
 import { z } from 'zod';
 
 import { localizationConfig } from '../../config/LocalizationConfig';
-import { CustomError } from '../errorUtils';
-import logger from '../logging';
-
-import { anonymizeLogData, sanitizeFilename, sanitizeForSearch, sanitizeHTML } from './sanitize';
 
 /**
  * Schema for string manipulation options
  */
 const StringManipulationOptionsSchema = z.object({
   locale: z.string().optional().describe('Locale for string formatting'),
-  maxLength: z.number().positive().optional().describe('Maximum length for truncation'),
+  maxLength: z
+    .number()
+    .positive()
+    .optional()
+    .describe('Maximum length for truncation'),
 });
 
 /**
  * Type definition for string manipulation options
  */
-type StringManipulationOptions = z.infer<typeof StringManipulationOptionsSchema>;
+type StringManipulationOptions = z.infer<
+  typeof StringManipulationOptionsSchema
+>;
 
 /**
  * Capitalizes the first letter of a string
@@ -54,20 +56,20 @@ export const removeDuplicates = (str: string): string => {
  * @param {string} str - The input string
  * @param {StringManipulationOptions} options - Options for string manipulation
  * @returns {string} The formatted string
- * @throws {CustomError} If formatting fails
  */
-export const formatString = (str: string, options?: StringManipulationOptions): string => {
-  try {
-    const validatedOptions = StringManipulationOptionsSchema.parse(options);
-    const locale = validatedOptions.locale || localizationConfig.defaultLocale;
-    const formatter = new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' });
-    const words = str.split(' ');
+export const formatString = (
+  str: string,
+  options?: StringManipulationOptions,
+): string => {
+  const validatedOptions = StringManipulationOptionsSchema.parse(options);
+  const locale = validatedOptions.locale || localizationConfig.defaultLocale;
+  const formatter = new (Intl as any).ListFormat(locale, {
+    style: 'long',
+    type: 'conjunction',
+  });
+  const words = str.split(' ');
 
-    return formatter.format(words);
-  } catch (error) {
-    logger.error('String formatting failed:', error);
-    throw error;
-  }
+  return formatter.format(words);
 };
 
 /**
@@ -80,7 +82,6 @@ export const isValidEmail = (email: string): boolean => {
 
   try {
     emailSchema.parse(email);
-
     return true;
   } catch (error) {
     return false;
@@ -111,22 +112,10 @@ export const memoizedStringOperation = ((): ((input: string) => string) => {
   };
 })();
 
-// Export sanitization functions from sanitize.ts
-export { anonymizeLogData, sanitizeFilename, sanitizeForSearch, sanitizeHTML } from './sanitize';
-
-// Validate the utility functions
-try {
-  capitalize('test');
-  truncate('Long string', 10);
-  removeDuplicates('hello');
-  formatString('apple banana cherry', { locale: 'en-US' });
-  isValidEmail('test@example.com');
-  memoizedStringOperation('reverse me');
-  sanitizeForSearch('Test@123');
-  sanitizeHTML('<p>Test</p>', { ALLOWED_TAGS: ['p'] });
-  sanitizeFilename('File Name! @#$.txt');
-  anonymizeLogData('email=test@example.com&password=secret');
-} catch (error) {
-  logger.error('String utility function validation failed:', error);
-  throw error;
-}
+// Export sanitization functions
+export {
+  anonymizeLogData,
+  sanitizeFilename,
+  sanitizeForSearch,
+  sanitizeHTML,
+} from './sanitize';

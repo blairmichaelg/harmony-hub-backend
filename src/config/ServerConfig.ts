@@ -1,22 +1,23 @@
 // src/config/ServerConfig.ts
 
 import convict from 'convict';
+import { z } from 'zod';
 
 /**
  * Schema for server configuration
  * @remarks
  * This schema defines the structure and validation rules for the server configuration.
  */
-const ServerConfigSchema = convict({
+export const ServerConfigSchema = convict({
   host: {
     doc: 'Server host',
-    format: String,
+    format: z.string().describe('Server host'),
     default: 'localhost',
     env: 'SERVER_HOST',
   },
   port: {
     doc: 'Server port',
-    format: 'port',
+    format: z.number().int().positive().describe('Server port'),
     default: 3000,
     env: 'SERVER_PORT',
   },
@@ -29,23 +30,11 @@ const ServerConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-/**
- * Interface definition for server configuration
- */
-export interface IServerConfig {
-  host: string;
-  port: number;
-  protocol: 'http' | 'https';
-}
+export type ServerConfig = z.infer<typeof ServerConfigSchema>;
 
-/**
- * Server configuration object
- * @remarks
- * This object contains the parsed and validated server configuration.
- */
 const config = ServerConfigSchema.getProperties();
 
-export const serverConfig: IServerConfig = config as unknown as IServerConfig;
+export const serverConfig: ServerConfig = config as unknown as ServerConfig;
 
 // Validate the configuration
 try {

@@ -25,11 +25,15 @@ export const getSupportedAudioFormats = (): Array<{
  */
 export const isAudioFormatSupported = (extension: string): boolean => {
   if (typeof extension !== 'string' || extension.trim() === '') {
-    throw new CustomError('Invalid file extension', 'INVALID_FILE_EXTENSION', 400);
+    throw new CustomError(
+      'Invalid file extension',
+      'INVALID_FILE_EXTENSION',
+      400,
+    );
   }
 
   return audioProcessingConfig.supportedFormats.some(
-    (format) => format.extension.toLowerCase() === extension.toLowerCase()
+    (format) => format.extension.toLowerCase() === extension.toLowerCase(),
   );
 };
 
@@ -39,16 +43,18 @@ export const isAudioFormatSupported = (extension: string): boolean => {
  * @returns {{ mimeType: string; codec: string }} An object containing the MIME type and codec for the format
  * @throws {CustomError} If the format is not supported
  */
-export const getAudioFormatInfo = (extension: string): { mimeType: string; codec: string } => {
+export const getAudioFormatInfo = (
+  extension: string,
+): { mimeType: string; codec: string } => {
   const format = audioProcessingConfig.supportedFormats.find(
-    (f) => f.extension.toLowerCase() === extension.toLowerCase()
+    (f) => f.extension.toLowerCase() === extension.toLowerCase(),
   );
 
   if (!format) {
     throw new CustomError(
       `Unsupported audio format: ${extension}`,
       'UNSUPPORTED_AUDIO_FORMAT',
-      400
+      400,
     );
   }
 

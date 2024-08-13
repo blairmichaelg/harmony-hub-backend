@@ -4,79 +4,43 @@ import convict from 'convict';
 import { z } from 'zod';
 
 /**
- * Schema for date and time format configuration
- */
-z.object({
-  shortDate: z.string().describe('Short date format'),
-  longDate: z.string().describe('Long date format'),
-  time: z.string().describe('Time format'),
-});
-
-/**
  * Schema for localization configuration
  * @remarks
  * This schema defines the structure and validation rules for the localization configuration.
  */
-const LocalizationConfigSchema = convict({
-  locale: {
-    doc: 'Locale for the application',
+export const LocalizationConfigSchema = convict({
+  defaultLocale: {
+    doc: 'Default locale for the application',
     format: String,
     default: 'en-US',
-    env: 'LOCALE',
+    env: 'DEFAULT_LOCALE',
   },
-  dateTimeFormat: {
-    doc: 'Date and time format configuration',
-    format: Object,
-    default: {
-      shortDate: 'MM/DD/YYYY',
-      longDate: 'MMMM D, YYYY',
-      time: 'HH:mm:ss',
-    },
-    env: 'DATE_TIME_FORMAT',
+  supportedLocales: {
+    doc: 'List of supported locales',
+    format: z.array(z.string()),
+    default: ['en-US'],
+    env: 'SUPPORTED_LOCALES',
   },
-  timezone: {
-    doc: 'Timezone for the application',
-    format: String,
-    default: 'UTC',
-    env: 'TIMEZONE',
-  },
-  // Add more fields as needed for future extensibility
+  // Add more localization-specific fields as needed
 });
 
-/**
- * Interface definition for date and time format configuration
- */
-export interface IDateTimeFormat {
-  shortDate: string;
-  longDate: string;
-  time: string;
-}
+export type LocalizationConfig = z.infer<typeof LocalizationConfigSchema>;
 
-/**
- * Interface definition for localization configuration
- */
-export interface ILocalizationConfig {
-  locale: string;
-  dateTimeFormat: IDateTimeFormat;
-  timezone: string;
-}
-
-/**
- * Localization configuration object
- * @remarks
- * This object contains the parsed and validated localization configuration.
- */
+// Create and validate the configuration object
 const config = LocalizationConfigSchema.getProperties();
 
-export const localizationConfig: ILocalizationConfig = config as unknown as ILocalizationConfig;
+export const localizationConfig: LocalizationConfig =
+  config as unknown as LocalizationConfig;
 
-// Validate the configuration
 try {
   LocalizationConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
-    console.error('Localization configuration validation failed:', error.message);
-    throw new Error('Invalid localization configuration');
+    console.error(
+      'Localization configuration validation failed:',
+      error.message,
+    );
+    throw new Error('Invalid Localization configuration');
   }
   throw error;
 }

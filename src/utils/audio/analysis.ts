@@ -31,7 +31,10 @@ export const calculateRMS = (audioBuffer: Float32Array): number => {
  * @returns {number[]} An array of waveform data points
  * @throws {CustomError} If the input is not a valid audio buffer
  */
-export const generateWaveform = (audioBuffer: Float32Array, width: number): number[] => {
+export const generateWaveform = (
+  audioBuffer: Float32Array,
+  width: number,
+): number[] => {
   try {
     validateAudioBuffer(audioBuffer);
     const waveform: number[] = new Array(width).fill(0);
@@ -63,7 +66,9 @@ export const generateWaveform = (audioBuffer: Float32Array, width: number): numb
  * @returns {Promise<AudioMetadata>} A promise resolving to the audio metadata
  * @throws {CustomError} If metadata extraction fails
  */
-export const extractAudioMetadata = async (filePath: string): Promise<AudioMetadata> => {
+export const extractAudioMetadata = async (
+  filePath: string,
+): Promise<AudioMetadata> => {
   try {
     // Placeholder - Implement actual metadata extraction using a library like music-metadata
     const metadata: AudioMetadata = {
@@ -81,6 +86,10 @@ export const extractAudioMetadata = async (filePath: string): Promise<AudioMetad
 
     return metadata;
   } catch (error) {
-    throw new CustomError('Failed to extract audio metadata', 'METADATA_EXTRACTION_ERROR', 500);
+    throw new CustomError(
+      'Failed to extract audio metadata',
+      'METADATA_EXTRACTION_ERROR',
+      500,
+    );
   }
 };

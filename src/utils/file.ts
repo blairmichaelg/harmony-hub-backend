@@ -2,18 +2,16 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-
 import { z } from 'zod';
 
 import { performanceConfig } from '../config/PerformanceConfig';
 import { securityConfig } from '../config/SecurityConfig';
 import { storageConfig } from '../config/StorageConfig';
-
 import { cache } from './caching';
 import { decrypt, encrypt, hashSHA256 } from './crypto';
 import { CustomError } from './errorUtils';
 import logger from './logging';
-import { Storage, createStorageProvider } from './storageProviderSDK';
+import { createStorageProvider, Storage } from './storageProviderSDK';
 import { sanitizeFilename, sanitizeHTML } from './string';
 import {
   AudioMetadataSchema,
@@ -29,7 +27,7 @@ const FileMetadataSchema = z.object({
   hash: z.string().optional(),
 });
 
-type FileMetadata = z.infer<typeof FileMetadataSchema>;
+export type FileMetadata = z.infer<typeof FileMetadataSchema>;
 
 /**
  * Gets the size of a file in bytes
@@ -40,11 +38,14 @@ type FileMetadata = z.infer<typeof FileMetadataSchema>;
 export const getFileSize = async (filePath: string): Promise<number> => {
   try {
     const stats = await fs.stat(filePath);
-
     return stats.size;
   } catch (error) {
     logger.error('Error getting file size:', { error, filePath });
-    throw new CustomError('File not found or inaccessible', 'FILE_ACCESS_ERROR', 404);
+    throw new CustomError(
+      'File not found or inaccessible',
+      'FILE_ACCESS_ERROR',
+      404,
+    );
   }
 };
 
@@ -54,7 +55,9 @@ export const getFileSize = async (filePath: string): Promise<number> => {
  * @returns {Promise<void>}
  * @throws {CustomError} If the directory creation fails
  */
-export const createDirectoryIfNotExists = async (dirPath: string): Promise<void> => {
+export const createDirectoryIfNotExists = async (
+  dirPath: string,
+): Promise<void> => {
   try {
     await fs.access(dirPath);
   } catch {
@@ -62,7 +65,11 @@ export const createDirectoryIfNotExists = async (dirPath: string): Promise<void>
       await fs.mkdir(dirPath, { recursive: true });
     } catch (error) {
       logger.error('Error creating directory:', { error, dirPath });
-      throw new CustomError('Failed to create directory', 'DIRECTORY_CREATE_ERROR', 500);
+      throw new CustomError(
+        'Failed to create directory',
+        'DIRECTORY_CREATE_ERROR',
+        500,
+      );
     }
   }
 };
@@ -75,9 +82,11 @@ export const createDirectoryIfNotExists = async (dirPath: string): Promise<void>
 const validateFileMetadata = (metadata: FileMetadata): void => {
   try {
     FileMetadataSchema.parse(metadata);
-    validateFileSize(metadata.size, storageConfig.uploadLimits.maxFileSize);
+    validateFileSize(metadata.size);
 
-    if (!storageConfig.uploadLimits.allowedMimeTypes.includes(metadata.mimeType)) {
+    if (
+      !storageConfig.uploadLimits.allowedMimeTypes.includes(metadata.mimeType)
+    ) {
       throw new CustomError('File type is not allowed', 'FILE_TYPE_ERROR', 400);
     }
 
@@ -87,7 +96,11 @@ const validateFileMetadata = (metadata: FileMetadata): void => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       logger.error('File metadata validation failed:', { error: error.errors });
-      throw new CustomError('Invalid file metadata', 'METADATA_VALIDATION_ERROR', 400);
+      throw new CustomError(
+        'Invalid file metadata',
+        'METADATA_VALIDATION_ERROR',
+        400,
+      );
     }
     throw error;
   }
@@ -104,14 +117,14 @@ const validateFileMetadata = (metadata: FileMetadata): void => {
 export const streamFileToStorage = async (
   filePath: string,
   metadata: FileMetadata,
-  audioOptions?: z.infer<typeof AudioProcessingOptionsSchema>
+  audioOptions?: z.infer<typeof AudioProcessingOptionsSchema>,
 ): Promise<string> => {
   try {
     validateFileMetadata(metadata);
 
     if (audioOptions) {
       AudioProcessingOptionsSchema.parse(audioOptions);
-      // Apply audio processing here
+      // Apply audio processing here (implementation needed)
     }
 
     const storage: Storage = createStorageProvider(storageConfig.provider);
@@ -120,12 +133,12 @@ export const streamFileToStorage = async (
 
     const fileContent = await fs.readFile(filePath);
 
-    metadata.hash = hashSHA256(fileContent);
+    metadata.hash = hashSHA256(fileContent.toString());
 
     if (securityConfig.fileEncryption.enabled) {
       const encryptedContent = await encrypt(
         fileContent.toString(),
-        securityConfig.fileEncryption.key
+        securityConfig.fileEncryption.key,
       );
 
       await fs.writeFile(filePath, encryptedContent);
@@ -138,15 +151,30 @@ export const streamFileToStorage = async (
     }
 
     if (performanceConfig.caching.enabled) {
-      await cache.set(`file:${secureFilename}`, url, performanceConfig.caching.ttl);
+      await cache.set(
+        `file:${secureFilename}`,
+        url,
+        performanceConfig.caching.ttl,
+      );
     }
 
-    logger.info('File successfully streamed to storage', { filename: secureFilename, url });
+    logger.info('File successfully streamed to storage', {
+      filename: secureFilename,
+      url,
+    });
 
     return url;
   } catch (error) {
-    logger.error('Error streaming file to storage:', { error, filePath, metadata });
-    throw new CustomError('Failed to stream file to storage', 'FILE_STREAM_ERROR', 500);
+    logger.error('Error streaming file to storage:', {
+      error,
+      filePath,
+      metadata,
+    });
+    throw new CustomError(
+      'Failed to stream file to storage',
+      'FILE_STREAM_ERROR',
+      500,
+    );
   }
 };
 
@@ -156,7 +184,9 @@ export const streamFileToStorage = async (
  * @returns {Promise<Buffer>} The file content as a Buffer
  * @throws {Error} If retrieving the file fails
  */
-export const getFileFromStorage = async (fileIdentifier: string): Promise<Buffer> => {
+export const getFileFromStorage = async (
+  fileIdentifier: string,
+): Promise<Buffer> => {
   try {
     if (performanceConfig.caching.enabled) {
       const cachedFile = await cache.get(`file:${fileIdentifier}`);
@@ -173,7 +203,10 @@ export const getFileFromStorage = async (fileIdentifier: string): Promise<Buffer
 
     if (securityConfig.fileEncryption.enabled) {
       fileContent = Buffer.from(
-        await decrypt(fileContent.toString(), securityConfig.fileEncryption.key)
+        await decrypt(
+          fileContent.toString(),
+          securityConfig.fileEncryption.key,
+        ),
       );
     }
 
@@ -181,7 +214,7 @@ export const getFileFromStorage = async (fileIdentifier: string): Promise<Buffer
       await cache.set(
         `file:${fileIdentifier}`,
         fileContent.toString(),
-        performanceConfig.caching.ttl
+        performanceConfig.caching.ttl,
       );
     }
 
@@ -189,7 +222,10 @@ export const getFileFromStorage = async (fileIdentifier: string): Promise<Buffer
 
     return fileContent;
   } catch (error) {
-    logger.error('Error retrieving file from storage:', { error, fileIdentifier });
+    logger.error('Error retrieving file from storage:', {
+      error,
+      fileIdentifier,
+    });
     throw new Error('Failed to retrieve file from storage');
   }
 };
@@ -228,7 +264,10 @@ export const sanitizeFileContent = (content: string): string => {
  * @returns {unknown} The result of the operation
  * @throws {Error} If an unknown operation is provided
  */
-export const memoizedFileOperation = ((): ((operation: string, input: unknown) => unknown) => {
+export const memoizedFileOperation = ((): ((
+  operation: string,
+  input: unknown,
+) => unknown) => {
   const cache = new Map<string, unknown>();
 
   return (operation: string, input: unknown): unknown => {
@@ -242,6 +281,7 @@ export const memoizedFileOperation = ((): ((operation: string, input: unknown) =
 
     switch (operation) {
       case 'processMetadata':
+        // TODO: Implement actual metadata processing logic here
         result = { input, processed: true };
         break;
       default:
@@ -253,20 +293,3 @@ export const memoizedFileOperation = ((): ((operation: string, input: unknown) =
     return result;
   };
 })();
-
-// Validate the utility functions
-try {
-  const testMetadata: FileMetadata = {
-    name: 'test.txt',
-    size: 1024,
-    mimeType: 'text/plain',
-  };
-
-  validateFileMetadata(testMetadata);
-  generateSecureFilename('test@file.txt');
-  sanitizeFileContent('<p>Test content <script>alert("XSS")</script></p>');
-  memoizedFileOperation('processMetadata', { name: 'test.txt', size: 1024 });
-} catch (error) {
-  logger.error('File utility function validation failed:', { error });
-  throw error;
-}

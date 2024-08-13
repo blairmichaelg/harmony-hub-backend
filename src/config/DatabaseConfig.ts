@@ -1,133 +1,99 @@
+// src/config/DatabaseConfig.ts
+
 import convict from 'convict';
+import { z } from 'zod';
 
 /**
  * Schema for database configuration
  * @remarks
  * This schema defines the structure and validation rules for the database configuration.
  */
-const DatabaseConfigSchema = convict({
+export const DatabaseConfigSchema = convict({
   type: {
-    doc: 'Type of database',
+    doc: 'Database type (e.g., postgres, mongodb)',
     format: ['postgres', 'mongodb'],
     default: 'postgres',
-    env: 'DB_TYPE',
+    env: 'DATABASE_TYPE',
   },
-  url: {
-    doc: 'Database connection URL',
-    format: 'url',
-    default: '', // Set a default value or require this variable
-    env: 'DATABASE_URL',
-    sensitive: true,
+  postgres: {
+    doc: 'PostgreSQL configuration',
+    format: z.object({
+      host: z.string().describe('PostgreSQL host'),
+      port: z.number().int().positive().describe('PostgreSQL port'),
+      user: z.string().describe('PostgreSQL user'),
+      password: z.string().describe('PostgreSQL password'),
+      database: z.string().describe('PostgreSQL database name'),
+      // Add more PostgreSQL-specific fields as needed
+    }),
+    default: {
+      host: 'localhost',
+      port: 5432,
+      user: 'postgres',
+      password: 'password',
+      database: 'harmonyhub',
+    },
+    env: 'POSTGRES_CONFIG',
   },
-  maxConnections: {
-    doc: 'Maximum number of database connections',
-    format: 'nat',
-    default: 20,
-    env: 'DB_MAX_CONNECTIONS',
+  mongodb: {
+    doc: 'MongoDB configuration',
+    format: z.object({
+      url: z.string().url().describe('MongoDB connection URL'),
+      // Add more MongoDB-specific fields as needed
+    }),
+    default: {
+      url: 'mongodb://localhost:27017/harmonyhub',
+    },
+    env: 'MONGODB_CONFIG',
   },
-  connectionLimit: {
-    doc: 'Database connection limit',
-    format: 'nat',
-    default: 10,
-    env: 'DB_CONNECTION_LIMIT',
-  },
-  idleTimeoutMillis: {
-    doc: 'Idle timeout in milliseconds',
-    format: 'nat',
-    default: 30000,
-    env: 'DB_IDLE_TIMEOUT',
-  },
-  connectionTimeoutMillis: {
-    doc: 'Connection timeout in milliseconds',
-    format: 'nat',
-    default: 2000,
-    env: 'DB_CONNECTION_TIMEOUT',
+  pool: {
+    doc: 'Connection pool settings',
+    format: z.object({
+      min: z
+        .number()
+        .int()
+        .nonnegative()
+        .describe('Minimum number of connections in the pool'),
+      max: z
+        .number()
+        .int()
+        .positive()
+        .describe('Maximum number of connections in the pool'),
+      // Add more pool-specific fields as needed
+    }),
+    default: {
+      min: 2,
+      max: 10,
+    },
+    env: 'DATABASE_POOL_CONFIG',
   },
   migrations: {
-    directory: {
-      doc: 'Directory for database migrations',
-      format: 'string',
-      default: './migrations',
-      env: 'DB_MIGRATIONS_DIR',
+    doc: 'Database migration settings',
+    format: z.object({
+      directory: z.string().describe('Directory containing migration files'),
+      // Add more migration-specific fields as needed
+    }),
+    default: {
+      directory: './migrations',
     },
-    tableName: {
-      doc: 'Table name for tracking migrations',
-      format: 'string',
-      default: 'migrations',
-      env: 'DB_MIGRATIONS_TABLE',
-    },
+    env: 'DATABASE_MIGRATIONS_CONFIG',
   },
   // Add more fields as needed for future extensibility
 });
 
-/**
- * Interface definition for database configuration
- */
-export interface IDatabaseConfig {
-  type: 'postgres' | 'mongodb';
-  url: string;
-  maxConnections: number;
-  connectionLimit: number;
-  idleTimeoutMillis: number;
-  connectionTimeoutMillis: number;
-  migrations: {
-    directory: string;
-    tableName: string;
-  };
-}
+export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
 
-/**
- * Database configuration object
- * @remarks
- * This object contains the parsed and validated database configuration.
- */
+// Create and validate the configuration object
 const config = DatabaseConfigSchema.getProperties();
 
-export const databaseConfig: IDatabaseConfig = config as unknown as IDatabaseConfig;
+export const databaseConfig: DatabaseConfig =
+  config as unknown as DatabaseConfig;
 
-/**
- * Connects to the database based on the configuration
- * @returns A promise that resolves when the database connection is established
- * @throws An error if the connection fails
- */
-export const connectDB = async (): Promise<void> => {
-  try {
-    if (databaseConfig.type === 'mongodb') {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const mongoose = require('mongoose');
-      const conn = await mongoose.connect(databaseConfig.url, {
-        maxPoolSize: databaseConfig.connectionLimit,
-        serverSelectionTimeoutMS: databaseConfig.connectionTimeoutMillis,
-      });
-
-      console.error(`MongoDB Connected: ${conn.connection.host}`);
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { Pool } = require('pg');
-      const pool = new Pool({
-        connectionString: databaseConfig.url,
-        max: databaseConfig.connectionLimit,
-        idleTimeoutMillis: databaseConfig.idleTimeoutMillis,
-        connectionTimeoutMillis: databaseConfig.connectionTimeoutMillis,
-      });
-      const client = await pool.connect();
-
-      console.error('PostgreSQL Connected');
-      client.release();
-    }
-  } catch (error) {
-    console.error(`Error connecting to ${databaseConfig.type}:`, error);
-    process.exit(1);
-  }
-};
-
-// Validate the configuration
 try {
   DatabaseConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
     console.error('Database configuration validation failed:', error.message);
-    throw new Error('Invalid database configuration');
+    throw new Error('Invalid Database configuration');
   }
   throw error;
 }

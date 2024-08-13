@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 export const createUser = async (
   username: string,
   email: string,
-  password: string
+  password: string,
 ): Promise<IUser> => {
   const existingUser = await User.findOne({ $or: [{ email }, { username }] });
 
@@ -26,7 +26,10 @@ export const createUser = async (
   return user;
 };
 
-export const loginUser = async (email: string, password: string): Promise<string> => {
+export const loginUser = async (
+  email: string,
+  password: string,
+): Promise<string> => {
   const user = await User.findOne({ email });
 
   if (!user || !(await user.comparePassword(password))) {

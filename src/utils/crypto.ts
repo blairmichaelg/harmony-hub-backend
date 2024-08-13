@@ -1,12 +1,11 @@
 // src/utils/crypto.ts
 
-import crypto from 'crypto';
-
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
+import jwt from 'jsonwebtoken'; // Import JWT directly
 
 import { authConfig } from '../config/AuthConfig';
 import { securityConfig } from '../config/SecurityConfig';
-
 import { CustomError } from './errorUtils';
 import logger from './logging';
 
@@ -18,13 +17,18 @@ import logger from './logging';
  */
 export const hashPassword = async (password: string): Promise<string> => {
   try {
-    const { saltRounds } = securityConfig.bcrypt;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
+    const hashedPassword = await bcrypt.hash(
+      password,
+      securityConfig.saltRounds,
+    );
     return hashedPassword;
   } catch (error) {
     logger.error('Password hashing failed:', error);
-    throw new CustomError('Failed to hash password', 'PASSWORD_HASHING_ERROR', 500);
+    throw new CustomError(
+      'Failed to hash password',
+      'PASSWORD_HASHING_ERROR',
+      500,
+    );
   }
 };
 
@@ -35,14 +39,20 @@ export const hashPassword = async (password: string): Promise<string> => {
  * @returns {Promise<boolean>} True if the passwords match, false otherwise
  * @throws {CustomError} If comparison fails
  */
-export const comparePassword = async (password: string, hash: string): Promise<boolean> => {
+export const comparePassword = async (
+  password: string,
+  hash: string,
+): Promise<boolean> => {
   try {
     const match = await bcrypt.compare(password, hash);
-
     return match;
   } catch (error) {
     logger.error('Password comparison failed:', error);
-    throw new CustomError('Failed to compare passwords', 'PASSWORD_COMPARISON_ERROR', 500);
+    throw new CustomError(
+      'Failed to compare passwords',
+      'PASSWORD_COMPARISON_ERROR',
+      500,
+    );
   }
 };
 
@@ -67,9 +77,7 @@ export const encrypt = async (data: string, key: string): Promise<string> => {
     const iv = crypto.randomBytes(16);
     const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv);
     let encrypted = cipher.update(data, 'utf8', 'hex');
-
     encrypted += cipher.final('hex');
-
     return `${iv.toString('hex')}:${encrypted}`;
   } catch (error) {
     logger.error('Encryption failed:', error);
@@ -84,15 +92,20 @@ export const encrypt = async (data: string, key: string): Promise<string> => {
  * @returns {Promise<string>} The decrypted data
  * @throws {CustomError} If decryption fails
  */
-export const decrypt = async (encryptedData: string, key: string): Promise<string> => {
+export const decrypt = async (
+  encryptedData: string,
+  key: string,
+): Promise<string> => {
   try {
     const [ivHex, encryptedHex] = encryptedData.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv);
+    const decipher = crypto.createDecipheriv(
+      'aes-256-cbc',
+      Buffer.from(key),
+      iv,
+    );
     let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-
     decrypted += decipher.final('utf8');
-
     return decrypted;
   } catch (error) {
     logger.error('Decryption failed:', error);
@@ -117,11 +130,7 @@ export const hashSHA256 = (data: string): string => {
  */
 export const signJWT = async (payload: object): Promise<string> => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const jwt = require('jsonwebtoken');
-
     return jwt.sign(payload, authConfig.jwt.secret, {
-      algorithm: authConfig.jwt.algorithm,
       expiresIn: authConfig.jwt.expiresIn,
     });
   } catch (error) {
@@ -138,29 +147,13 @@ export const signJWT = async (payload: object): Promise<string> => {
  */
 export const verifyJWT = async (token: string): Promise<object | string> => {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const jwt = require('jsonwebtoken');
-
-    return jwt.verify(token, authConfig.jwt.secret, {
-      algorithms: [authConfig.jwt.algorithm],
-    });
+    return jwt.verify(token, authConfig.jwt.secret);
   } catch (error) {
     logger.error('JWT verification failed:', error);
-    throw new CustomError('Failed to verify JWT', 'JWT_VERIFICATION_ERROR', 401);
+    throw new CustomError(
+      'Failed to verify JWT',
+      'JWT_VERIFICATION_ERROR',
+      401,
+    );
   }
 };
-
-// Validate the utility functions
-try {
-  await hashPassword('test');
-  await comparePassword('test', 'hashedPassword');
-  generateRandomString(32);
-  await encrypt('test', 'secret');
-  await decrypt('encryptedData', 'secret');
-  hashSHA256('test');
-  await signJWT({ data: 'test' });
-  await verifyJWT('token');
-} catch (error) {
-  logger.error('Crypto utility function validation failed:', error);
-  throw error;
-}

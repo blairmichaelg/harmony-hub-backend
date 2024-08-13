@@ -20,7 +20,7 @@ export const sleep = (ms: number): Promise<void> => {
 export const retry = async <T>(
   fn: () => Promise<T>,
   retries: number,
-  delay: number
+  delay: number,
 ): Promise<T> => {
   try {
     return await fn();

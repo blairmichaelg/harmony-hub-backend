@@ -1,13 +1,14 @@
 // src/config/SecurityConfig.ts
 
 import convict from 'convict';
+import { z } from 'zod';
 
 /**
  * Schema for security configuration
  * @remarks
  * This schema defines the structure and validation rules for the security configuration.
  */
-const SecurityConfigSchema = convict({
+export const SecurityConfigSchema = convict({
   jwtSecret: {
     doc: 'Secret key for signing JWT tokens',
     format: String,
@@ -27,34 +28,37 @@ const SecurityConfigSchema = convict({
     default: '1h',
     env: 'TOKEN_EXPIRATION',
   },
-  // Add more fields as needed for future extensibility
+  fileEncryption: {
+    doc: 'File encryption configuration',
+    format: z.object({
+      enabled: z.boolean().describe('Whether file encryption is enabled'),
+      key: z.string().describe('Encryption key'),
+      // Add more file encryption-specific fields as needed
+    }),
+    default: {
+      enabled: false,
+      key: 'your-secret-key', // Replace with a strong, randomly generated key
+    },
+    env: 'FILE_ENCRYPTION_CONFIG',
+    sensitive: true,
+  },
+  // Add more security-specific fields as needed
 });
 
-/**
- * Interface definition for security configuration
- */
-export interface ISecurityConfig {
-  jwtSecret: string;
-  saltRounds: number;
-  tokenExpiration: string;
-}
+export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
 
-/**
- * Security configuration object
- * @remarks
- * This object contains the parsed and validated security configuration.
- */
+// Create and validate the configuration object
 const config = SecurityConfigSchema.getProperties();
 
-export const securityConfig: ISecurityConfig = config as unknown as ISecurityConfig;
+export const securityConfig: SecurityConfig =
+  config as unknown as SecurityConfig;
 
-// Validate the configuration
 try {
   SecurityConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
     console.error('Security configuration validation failed:', error.message);
-    throw new Error('Invalid security configuration');
+    throw new Error('Invalid Security configuration');
   }
   throw error;
 }

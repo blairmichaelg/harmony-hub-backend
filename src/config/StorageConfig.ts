@@ -1,66 +1,90 @@
 // src/config/StorageConfig.ts
 
 import convict from 'convict';
+import { z } from 'zod';
 
 /**
  * Schema for storage configuration
  * @remarks
  * This schema defines the structure and validation rules for the storage configuration.
  */
-const StorageConfigSchema = convict({
+export const StorageConfigSchema = convict({
   provider: {
     doc: 'Storage provider (e.g., local, s3)',
     format: ['local', 's3'],
     default: 'local',
     env: 'STORAGE_PROVIDER',
   },
-  localPath: {
-    doc: 'Local storage path',
-    format: String,
-    default: './data',
-    env: 'LOCAL_STORAGE_PATH',
+  local: {
+    doc: 'Local storage configuration',
+    format: z.object({
+      path: z.string().describe('Local storage path'),
+    }),
+    default: {
+      path: './data',
+    },
+    env: 'LOCAL_STORAGE',
   },
-  s3Bucket: {
-    doc: 'S3 bucket name',
-    format: String,
-    default: '',
-    env: 'S3_BUCKET',
+  s3: {
+    doc: 'S3 storage configuration',
+    format: z.object({
+      bucket: z.string().describe('S3 bucket name'),
+      region: z.string().describe('S3 region'),
+      accessKeyId: z.string().describe('AWS access key ID'),
+      secretAccessKey: z.string().describe('AWS secret access key'),
+    }),
+    default: {
+      bucket: '',
+      region: '',
+      accessKeyId: '',
+      secretAccessKey: '',
+    },
+    env: 'S3_STORAGE',
   },
-  s3Region: {
-    doc: 'S3 region',
-    format: String,
-    default: '',
-    env: 'S3_REGION',
+  uploadLimits: {
+    doc: 'File upload limits',
+    format: z.object({
+      maxFileSize: z
+        .number()
+        .positive()
+        .describe('Maximum allowed file size in bytes'),
+      allowedMimeTypes: z
+        .array(z.string())
+        .describe('Allowed MIME types for uploaded files'),
+    }),
+    default: {
+      maxFileSize: 104857600, // 100MB
+      allowedMimeTypes: ['audio/mpeg', 'audio/wav', 'audio/ogg'],
+    },
+    env: 'UPLOAD_LIMITS',
   },
-  // Add more fields as needed for future extensibility
+  fileEncryption: {
+    doc: 'File encryption configuration',
+    format: z.object({
+      enabled: z.boolean().describe('Whether file encryption is enabled'),
+      key: z.string().describe('Encryption key'),
+    }),
+    default: {
+      enabled: false,
+      key: 'your-secret-key', // Replace with a strong, randomly generated key
+    },
+    env: 'FILE_ENCRYPTION',
+    sensitive: true,
+  },
 });
 
-/**
- * Interface definition for storage configuration
- */
-export interface IStorageConfig {
-  provider: 'local' | 's3';
-  localPath: string;
-  s3Bucket: string;
-  s3Region: string;
-}
+export type StorageConfig = z.infer<typeof StorageConfigSchema>;
 
-/**
- * Storage configuration object
- * @remarks
- * This object contains the parsed and validated storage configuration.
- */
 const config = StorageConfigSchema.getProperties();
 
-export const storageConfig: IStorageConfig = config as unknown as IStorageConfig;
+export const storageConfig: StorageConfig = config as unknown as StorageConfig;
 
-// Validate the configuration
 try {
   StorageConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
     console.error('Storage configuration validation failed:', error.message);
-    throw new Error('Invalid storage configuration');
+    throw new Error('Invalid Storage configuration');
   }
   throw error;
 }

@@ -1,6 +1,6 @@
 // /tests/unit/AIServicesConfig.test.ts
 
-import AIServicesConfig from '../../src/config/AIServicesConfig';
+import AIServicesConfig from '../../../src/config/AIServicesConfig';
 
 describe('AIServicesConfig', () => {
   const validConfig = {

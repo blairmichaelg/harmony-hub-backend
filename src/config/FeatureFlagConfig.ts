@@ -4,65 +4,37 @@ import convict from 'convict';
 import { z } from 'zod';
 
 /**
- * Schema for individual feature flag
- */
-z.object({
-  name: z.string().describe('Name of the feature flag'),
-  enabled: z.coerce.boolean().default(false).describe('Whether the feature flag is enabled'),
-  rolloutPercentage: z.coerce
-    .number()
-    .min(0)
-    .max(100)
-    .default(0)
-    .describe('Percentage of users for whom the feature is enabled'),
-});
-
-/**
- * Schema for feature flags configuration
+ * Schema for feature flag configuration
  * @remarks
- * This schema defines the structure and validation rules for the feature flags configuration.
+ * This schema defines the structure and validation rules for the feature flag configuration.
  */
-const FeatureFlagsConfigSchema = convict({
-  featureFlags: {
-    doc: 'List of feature flags',
-    format: Array,
-    default: [],
+export const FeatureFlagsConfigSchema = convict({
+  flags: {
+    doc: 'Feature flags and their states',
+    format: z.record(z.string(), z.boolean()),
+    default: {},
     env: 'FEATURE_FLAGS',
   },
+  // Add more fields as needed for future extensibility
 });
 
-/**
- * Interface definition for individual feature flag
- */
-export interface IFeatureFlag {
-  name: string;
-  enabled: boolean;
-  rolloutPercentage: number;
-}
+export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
 
-/**
- * Interface definition for feature flags configuration
- */
-export interface IFeatureFlagsConfig {
-  featureFlags: IFeatureFlag[];
-}
-
-/**
- * Feature flags configuration object
- * @remarks
- * This object contains the parsed and validated feature flags configuration.
- */
+// Create and validate the configuration object
 const config = FeatureFlagsConfigSchema.getProperties();
 
-export const featureFlagsConfig: IFeatureFlagsConfig = config as unknown as IFeatureFlagsConfig;
+export const featureFlagsConfig: FeatureFlagsConfig =
+  config as unknown as FeatureFlagsConfig;
 
-// Validate the configuration
 try {
   FeatureFlagsConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
   if (error instanceof Error) {
-    console.error('Feature flags configuration validation failed:', error.message);
-    throw new Error('Invalid feature flags configuration');
+    console.error(
+      'Feature Flag configuration validation failed:',
+      error.message,
+    );
+    throw new Error('Invalid Feature Flag configuration');
   }
   throw error;
 }

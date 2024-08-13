@@ -7,21 +7,51 @@ import * as z from 'zod';
 const audioFormatSchema = z.object({
   extension: z.string().describe('File extension for the audio format'),
   mimeType: z.string().describe('MIME type for the audio format'),
-  bitrate: z.number().int().positive().optional().describe('Bitrate in bits per second'),
-  sampleRate: z.number().int().positive().optional().describe('Sample rate in Hz'),
-  channels: z.number().int().positive().optional().describe('Number of audio channels'),
+  bitrate: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('Bitrate in bits per second'),
+  sampleRate: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('Sample rate in Hz'),
+  channels: z
+    .number()
+    .int()
+    .positive()
+    .optional()
+    .describe('Number of audio channels'),
 });
 
-const AudioProcessingConfigSchema = convict({
+export const AudioProcessingConfigSchema = convict({
   supportedFormats: {
     doc: 'List of supported audio formats',
     format: z.array(audioFormatSchema),
     default: [
-      { extension: 'mp3', mimeType: 'audio/mpeg', bitrate: 320000, channels: 2 },
-      { extension: 'wav', mimeType: 'audio/wav', sampleRate: 44100, channels: 2 },
+      {
+        extension: 'mp3',
+        mimeType: 'audio/mpeg',
+        bitrate: 320000,
+        channels: 2,
+      },
+      {
+        extension: 'wav',
+        mimeType: 'audio/wav',
+        sampleRate: 44100,
+        channels: 2,
+      },
       { extension: 'ogg', mimeType: 'audio/ogg', bitrate: 128000, channels: 2 },
       { extension: 'aac', mimeType: 'audio/aac', bitrate: 256000, channels: 2 },
-      { extension: 'flac', mimeType: 'audio/flac', sampleRate: 96000, channels: 2 },
+      {
+        extension: 'flac',
+        mimeType: 'audio/flac',
+        sampleRate: 96000,
+        channels: 2,
+      },
     ],
     env: 'AUDIO_SUPPORTED_FORMATS',
   },
@@ -140,9 +170,17 @@ const AudioProcessingConfigSchema = convict({
     format: z.record(
       z.object({
         bitrate: z.number().int().positive().describe('Bitrate for the preset'),
-        sampleRate: z.number().int().positive().describe('Sample rate for the preset'),
-        channels: z.number().int().positive().describe('Number of channels for the preset'),
-      })
+        sampleRate: z
+          .number()
+          .int()
+          .positive()
+          .describe('Sample rate for the preset'),
+        channels: z
+          .number()
+          .int()
+          .positive()
+          .describe('Number of channels for the preset'),
+      }),
     ),
     default: {
       low: { bitrate: 96000, sampleRate: 44100, channels: 2 },
@@ -163,11 +201,15 @@ const AudioProcessingConfigSchema = convict({
         doc: 'Reverb presets',
         format: z.record(
           z.object({
-            roomSize: z.number().min(0).max(1).describe('Size of the reverb room (0-1)'),
+            roomSize: z
+              .number()
+              .min(0)
+              .max(1)
+              .describe('Size of the reverb room (0-1)'),
             damping: z.number().min(0).max(1).describe('Damping factor (0-1)'),
             wetLevel: z.number().min(0).max(1).describe('Wet level (0-1)'),
             dryLevel: z.number().min(0).max(1).describe('Dry level (0-1)'),
-          })
+          }),
         ),
         default: {
           room: { roomSize: 0.5, damping: 0.5, wetLevel: 0.33, dryLevel: 0.67 },
@@ -188,10 +230,17 @@ const AudioProcessingConfigSchema = convict({
         doc: 'Equalization bands',
         format: z.array(
           z.object({
-            frequency: z.number().positive().describe('Center frequency of the EQ band'),
-            gain: z.number().min(-20).max(20).describe('Gain for the EQ band in dB'),
+            frequency: z
+              .number()
+              .positive()
+              .describe('Center frequency of the EQ band'),
+            gain: z
+              .number()
+              .min(-20)
+              .max(20)
+              .describe('Gain for the EQ band in dB'),
             q: z.number().positive().describe('Q factor for the EQ band'),
-          })
+          }),
         ),
         default: [
           { frequency: 100, gain: 0, q: 1 },
@@ -230,11 +279,26 @@ const AudioProcessingConfigSchema = convict({
   },
 });
 
-export type AudioProcessingConfig = typeof AudioProcessingConfigSchema;
+export type AudioProcessingConfig = z.infer<typeof AudioProcessingConfigSchema>;
 
 // Create and validate the configuration object
-export const audioProcessingConfig = AudioProcessingConfigSchema.validate({
-  // Load configuration from environment variables or use defaults
-});
+const config = AudioProcessingConfigSchema.getProperties();
+
+export const audioProcessingConfig: AudioProcessingConfig =
+  config as unknown as AudioProcessingConfig;
+
+// Validate the configuration
+try {
+  AudioProcessingConfigSchema.validate({ allowed: 'strict' });
+} catch (error) {
+  if (error instanceof Error) {
+    console.error(
+      'Audio Processing configuration validation failed:',
+      error.message,
+    );
+    throw new Error('Invalid Audio Processing configuration');
+  }
+  throw error;
+}
 
 export default audioProcessingConfig;

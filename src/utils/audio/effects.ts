@@ -2,7 +2,10 @@
 
 import { audioProcessingConfig } from '../../config/AudioProcessingConfig';
 import { CustomError } from '../errorUtils';
-import { validateAudioBuffer, validateReverbSettings } from '../validation/audio';
+import {
+  validateAudioBuffer,
+  validateReverbSettings,
+} from '../validation/audio';
 
 /**
  * Applies reverb to an audio buffer
@@ -13,20 +16,30 @@ import { validateAudioBuffer, validateReverbSettings } from '../validation/audio
  */
 export const applyReverb = async (
   audioBuffer: Float32Array,
-  settings: ReverbSettings
+  settings: ReverbSettings,
 ): Promise<Float32Array> => {
   try {
     validateAudioBuffer(audioBuffer);
     validateReverbSettings(settings);
-    const preset = audioProcessingConfig.effects.reverb.presets[settings.presetName];
-    // Placeholder - Implement actual reverb processing using a library like Tuna
-    // For demonstration, simply adjust the volume based on wet/dry levels
-    const wetGain = settings.wetLevel;
-    const dryGain = settings.dryLevel;
-    const processedBuffer = audioBuffer.map((sample) => sample * (wetGain + dryGain));
+    const preset =
+      audioProcessingConfig.effects.reverb.presets[settings.presetName];
+
+    // TODO: Implement actual reverb processing using a library like Tuna here.
+    // Use the 'preset' values to configure the reverb effect.
+
+    // Example using a simple gain adjustment for demonstration:
+    const wetGain = preset.wetLevel;
+    const dryGain = preset.dryLevel;
+    const processedBuffer = audioBuffer.map(
+      (sample) => sample * (wetGain + dryGain),
+    );
 
     return processedBuffer;
   } catch (error) {
-    throw new CustomError('Failed to apply reverb', 'REVERB_PROCESSING_ERROR', 500);
+    throw new CustomError(
+      'Failed to apply reverb',
+      'REVERB_PROCESSING_ERROR',
+      500,
+    );
   }
 };

@@ -9,7 +9,7 @@ import { z } from 'zod';
  * Defines the structure and validation rules for cache providers.
  */
 const CacheProviderSchema = z.object({
-  url: z.string().url().describe('Cache provider URL'),
+  type: z.enum(['local', 'redis']).default('local'),
   ttl: z.coerce
     .number()
     .int()
@@ -20,28 +20,55 @@ const CacheProviderSchema = z.object({
     .number()
     .int()
     .positive()
-    .default(1000)
-    .describe('Maximum number of items in the cache'),
-  enableLogging: z.boolean().default(true).describe('Enable logging for cache operations'),
+    .optional()
+    .describe('Maximum number of items in the cache (if applicable)'),
+  enableLogging: z
+    .boolean()
+    .default(true)
+    .describe('Enable logging for cache operations'),
   // Add more fields as needed for future extensibility
 });
 
 /**
  * Configuration schema for the caching system
  */
-const cacheConfigSchema = convict({
-  cacheProvider: {
-    doc: 'Cache provider configuration',
+export const cacheConfigSchema = convict({
+  local: {
+    doc: 'Local in-memory cache configuration',
     format: CacheProviderSchema,
     default: {
-      url: 'http://localhost:6379',
+      type: 'local',
       ttl: 3600,
       maxSize: 1000,
       enableLogging: true,
     },
-    env: 'CACHE_PROVIDER',
+  },
+  redis: {
+    doc: 'Redis cache configuration',
+    format: CacheProviderSchema,
+    default: {
+      type: 'redis',
+      ttl: 3600,
+      enableLogging: true,
+    },
   },
   // Add more configuration options as needed
 });
 
-export { cacheConfigSchema };
+export type CacheConfig = z.infer<typeof cacheConfigSchema>;
+
+const config = cacheConfigSchema.getProperties();
+
+export const cacheConfig: CacheConfig = config as unknown as CacheConfig;
+
+try {
+  cacheConfigSchema.validate({ allowed: 'strict' });
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('Cache configuration validation failed:', error.message);
+    throw new Error('Invalid cache configuration');
+  }
+  throw error;
+}
+
+export default cacheConfig;

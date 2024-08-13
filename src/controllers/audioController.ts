@@ -23,12 +23,17 @@ export class AudioController {
         return;
       }
 
-      const processedAudio = await this.audioService.processAudio(audioFile, effects);
+      const processedAudio = await this.audioService.processAudio(
+        audioFile,
+        effects,
+      );
 
       res.json({ processedAudio });
     } catch (error) {
       console.error('Error processing audio:', error);
-      res.status(500).json({ error: 'Internal server error while processing audio' });
+      res
+        .status(500)
+        .json({ error: 'Internal server error while processing audio' });
     }
   }
 

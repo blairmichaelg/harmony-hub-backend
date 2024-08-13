@@ -3,6 +3,7 @@
 import { z } from 'zod';
 
 import { audioProcessingConfig } from '../../config/AudioProcessingConfig';
+import { storageConfig } from '../../config/StorageConfig';
 
 /**
  * Schema for basic audio metadata
@@ -30,11 +31,11 @@ export const AudioFileExtensionSchema = z
   .refine(
     (ext) =>
       audioProcessingConfig.supportedFormats.some(
-        (format) => format.extension === ext.toLowerCase()
+        (format) => format.extension === ext.toLowerCase(),
       ),
     {
       message: 'Unsupported audio file extension',
-    }
+    },
   );
 
 /**
@@ -43,10 +44,12 @@ export const AudioFileExtensionSchema = z
 export const AudioBufferSchema = z
   .instanceof(Float32Array)
   .refine(
-    (buffer) => buffer.length > 0 && buffer.length <= audioProcessingConfig.performance.bufferSize,
+    (buffer) =>
+      buffer.length > 0 &&
+      buffer.length <= audioProcessingConfig.performance.bufferSize,
     {
       message: `Audio buffer must not be empty and must not exceed ${audioProcessingConfig.performance.bufferSize} samples`,
-    }
+    },
   );
 
 /**
@@ -54,7 +57,10 @@ export const AudioBufferSchema = z
  */
 export const ReverbSettingsSchema = z.object({
   presetName: z.enum(
-    Object.keys(audioProcessingConfig.effects.reverb.presets) as [string, ...string[]]
+    Object.keys(audioProcessingConfig.effects.reverb.presets) as [
+      string,
+      ...string[],
+    ],
   ),
   wetLevel: z.number().min(0).max(1),
   dryLevel: z.number().min(0).max(1),
@@ -77,7 +83,10 @@ export type EQBand = z.infer<typeof EQBandSchema>;
  * Schema for equalization settings
  */
 export const EQSettingsSchema = z.object({
-  bands: z.array(EQBandSchema).min(1).max(audioProcessingConfig.effects.equalization.bands.length),
+  bands: z
+    .array(EQBandSchema)
+    .min(1)
+    .max(audioProcessingConfig.effects.equalization.bands.length),
 });
 
 export type EQSettings = z.infer<typeof EQSettingsSchema>;
@@ -99,11 +108,18 @@ export const AudioProcessingOptionsSchema = z.object({
   reverb: ReverbSettingsSchema.optional(),
   equalization: EQSettingsSchema.optional(),
   qualityPreset: z
-    .enum(Object.keys(audioProcessingConfig.qualityPresets) as [string, ...string[]])
+    .enum(
+      Object.keys(audioProcessingConfig.qualityPresets) as [
+        string,
+        ...string[],
+      ],
+    )
     .optional(),
 });
 
-export type AudioProcessingOptions = z.infer<typeof AudioProcessingOptionsSchema>;
+export type AudioProcessingOptions = z.infer<
+  typeof AudioProcessingOptionsSchema
+>;
 
 /**
  * Validates audio metadata
@@ -141,7 +157,9 @@ export const validateAudioBuffer = (buffer: Float32Array): Float32Array => {
  * @returns The validated audio processing options
  * @throws ZodError if validation fails
  */
-export const validateAudioProcessingOptions = (options: unknown): AudioProcessingOptions => {
+export const validateAudioProcessingOptions = (
+  options: unknown,
+): AudioProcessingOptions => {
   return AudioProcessingOptionsSchema.parse(options);
 };
 
@@ -151,8 +169,15 @@ export const validateAudioProcessingOptions = (options: unknown): AudioProcessin
  * @returns The validated file size
  * @throws ZodError if validation fails
  */
-export const validateFileSize = (size: number, maxFileSize: number): number => {
-  return z.number().int().positive().max(audioProcessingConfig.maxFileSize).parse(size);
+export const validateFileSize = (size: number): number => {
+  return z
+    .number()
+    .int()
+    .positive()
+    .max(storageConfig.uploadLimits.maxFileSize, {
+      message: `File size exceeds the maximum allowed size of ${storageConfig.uploadLimits.maxFileSize} bytes`,
+    })
+    .parse(size);
 };
 
 /**

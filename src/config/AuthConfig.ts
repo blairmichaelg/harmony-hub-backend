@@ -1,82 +1,152 @@
+// src/config/AuthConfig.ts
+
+import convict from 'convict';
 import { z } from 'zod';
 
 // Define the schema for the AuthConfig
-export const AuthConfigSchema = z.object({
-  jwt: z.object({
-    secret: z.string().nonempty({
-      message: 'JWT secret must be provided',
-    }),
-    expiresIn: z.string().default('1h'),
-  }),
-  oauth2: z.object({
-    enabled: z.boolean().default(false),
-    providers: z
-      .record(
-        z.object({
-          clientId: z.string().nonempty(),
-          clientSecret: z.string().nonempty(),
-          callbackURL: z.string().url(),
-        })
-      )
-      .default({}),
-  }),
-  twoFactorAuthentication: z.object({
-    enabled: z.boolean().default(false),
-    providers: z.array(z.enum(['email', 'sms', 'authenticator'])).default([]),
-  }),
-  rateLimiting: z.object({
-    maxRequests: z.number().int().positive().default(100),
-    windowMs: z
-      .number()
-      .int()
-      .positive()
-      .default(15 * 60 * 1000), // 15 minutes
-  }),
-  cors: z.object({
-    origin: z.array(z.string()).default(['*']),
-    methods: z
-      .array(z.enum(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']))
-      .default(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']),
-  }),
-  helmet: z.object({
-    contentSecurityPolicy: z.boolean().default(true),
-    xssFilter: z.boolean().default(true),
-  }),
-  enableSSL: z.boolean().default(false),
-});
-
-// Define the AuthConfig type
-export type AuthConfig = z.infer<typeof AuthConfigSchema>;
-
-// Load the configuration from environment variables
-export const authConfig: AuthConfig = AuthConfigSchema.parse({
+export const AuthConfigSchema = convict({
   jwt: {
-    secret: process.env.JWT_SECRET || '',
-    expiresIn: process.env.JWT_EXPIRES_IN || '1h',
+    doc: 'JWT configuration',
+    format: z.object({
+      secret: z
+        .string()
+        .nonempty({ message: 'JWT secret must be provided' })
+        .describe('JWT secret key'),
+      expiresIn: z.string().default('1h').describe('JWT expiration time'),
+      // Add more JWT-specific fields as needed
+    }),
+    default: {
+      secret: 'your-secret-key', // Replace with a strong, randomly generated key
+      expiresIn: '1h',
+    },
+    env: 'JWT_CONFIG',
+    sensitive: true,
   },
   oauth2: {
-    enabled: process.env.OAUTH2_ENABLED === 'true',
-    providers: process.env.OAUTH2_PROVIDERS ? JSON.parse(process.env.OAUTH2_PROVIDERS) : {},
+    doc: 'OAuth2 configuration',
+    format: z.object({
+      enabled: z.boolean().default(false).describe('Enable OAuth2'),
+      providers: z
+        .record(
+          z.string(),
+          z.object({
+            clientId: z
+              .string()
+              .nonempty()
+              .describe('Client ID for the OAuth2 provider'),
+            clientSecret: z
+              .string()
+              .nonempty()
+              .describe('Client secret for the OAuth2 provider'),
+            callbackURL: z.string().url().describe('Callback URL'),
+            // Add more provider-specific fields as needed
+          }),
+        )
+        .default({}),
+    }),
+    default: {
+      enabled: false,
+      providers: {},
+    },
+    env: 'OAUTH2_CONFIG',
   },
   twoFactorAuthentication: {
-    enabled: process.env.TWO_FACTOR_AUTH_ENABLED === 'true',
-    providers: process.env.TWO_FACTOR_AUTH_PROVIDERS
-      ? process.env.TWO_FACTOR_AUTH_PROVIDERS.split(',')
-      : [],
+    doc: 'Two-factor authentication configuration',
+    format: z.object({
+      enabled: z
+        .boolean()
+        .default(false)
+        .describe('Enable two-factor authentication'),
+      providers: z
+        .array(z.enum(['email', 'sms', 'authenticator']))
+        .default([])
+        .describe('Supported two-factor authentication providers'),
+      // Add more 2FA-specific fields as needed
+    }),
+    default: {
+      enabled: false,
+      providers: [],
+    },
+    env: 'TWO_FACTOR_AUTH_CONFIG',
   },
   rateLimiting: {
-    maxRequests: parseInt(process.env.RATE_LIMITING_MAX_REQUESTS || '100', 10),
-    windowMs: parseInt(process.env.RATE_LIMITING_WINDOW_MS || (15 * 60 * 1000).toString(), 10),
+    doc: 'Rate limiting configuration',
+    format: z.object({
+      maxRequests: z
+        .number()
+        .int()
+        .positive()
+        .default(100)
+        .describe('Maximum number of requests allowed per window'),
+      windowMs: z
+        .number()
+        .int()
+        .positive()
+        .default(15 * 60 * 1000)
+        .describe('Time window in milliseconds'),
+      // Add more rate limiting-specific fields as needed
+    }),
+    default: {
+      maxRequests: 100,
+      windowMs: 15 * 60 * 1000,
+    },
+    env: 'RATE_LIMITING_CONFIG',
   },
   cors: {
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : ['*'],
-    methods: process.env.CORS_METHODS
-      ? process.env.CORS_METHODS.split(',')
-      : ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    doc: 'CORS configuration',
+    format: z.object({
+      origin: z.array(z.string()).default(['*']).describe('Allowed origins'),
+      methods: z
+        .array(z.enum(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']))
+        .default(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+        .describe('Allowed methods'),
+      // Add more CORS-specific fields as needed
+    }),
+    default: {
+      origin: ['*'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    },
+    env: 'CORS_CONFIG',
   },
   helmet: {
-    contentSecurityPolicy: process.env.HELMET_CONTENT_SECURITY_POLICY === 'true',
-    xssFilter: process.env.HELMET_XSS_FILTER === 'true',
+    doc: 'Helmet configuration',
+    format: z.object({
+      contentSecurityPolicy: z
+        .boolean()
+        .default(true)
+        .describe('Enable Content Security Policy'),
+      xssFilter: z.boolean().default(true).describe('Enable XSS Filter'),
+      // Add more Helmet-specific fields as needed
+    }),
+    default: {
+      contentSecurityPolicy: true,
+      xssFilter: true,
+    },
+    env: 'HELMET_CONFIG',
   },
-  enableSSL: process.env.ENABLE_SSL === 'true',
+  enableSSL: {
+    doc: 'Enable SSL',
+    format: z.boolean().default(false).describe('Enable SSL'),
+    default: false,
+    env: 'ENABLE_SSL',
+  },
 });
+
+export type AuthConfig = z.infer<typeof AuthConfigSchema>;
+
+// Create and validate the configuration object
+const config = AuthConfigSchema.getProperties();
+
+export const authConfig: AuthConfig = config as unknown as AuthConfig;
+
+try {
+  AuthConfigSchema.validate({ allowed: 'strict' });
+} catch (error) {
+  if (error instanceof Error) {
+    console.error('Auth configuration validation failed:', error.message);
+    throw new Error('Invalid Auth configuration');
+  }
+  throw error;
+}
+
+export default authConfig;

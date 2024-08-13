@@ -1,66 +1,46 @@
 // src/config/EmailConfig.ts
 
 import convict from 'convict';
+import { z } from 'zod';
 
 /**
  * Schema for email configuration
  * @remarks
  * This schema defines the structure and validation rules for the email configuration.
  */
-const EmailConfigSchema = convict({
-  smtpHost: {
-    doc: 'SMTP server host',
-    format: String,
-    default: 'smtp.example.com',
-    env: 'SMTP_HOST',
-  },
-  smtpPort: {
-    doc: 'SMTP server port',
-    format: 'port',
-    default: 587,
-    env: 'SMTP_PORT',
-  },
-  smtpUser: {
-    doc: 'SMTP server user',
-    format: String,
-    default: '',
-    env: 'SMTP_USER',
-  },
-  smtpPassword: {
-    doc: 'SMTP server password',
-    format: String,
-    default: '',
-    env: 'SMTP_PASSWORD',
+export const EmailConfigSchema = convict({
+  smtp: {
+    doc: 'SMTP server configuration',
+    format: z.object({
+      host: z.string().describe('SMTP server host'),
+      port: z.number().int().positive().describe('SMTP server port'),
+      user: z.string().describe('SMTP server user'),
+      password: z.string().describe('SMTP server password'),
+      // Add more SMTP-specific fields as needed
+    }),
+    default: {
+      host: 'smtp.example.com',
+      port: 587,
+      user: '',
+      password: '',
+    },
+    env: 'SMTP_CONFIG',
     sensitive: true,
   },
   fromEmail: {
     doc: 'Default from email address',
-    format: 'email',
+    format: z.string().email().describe('Default from email address'),
     default: 'no-reply@example.com',
     env: 'FROM_EMAIL',
   },
   // Add more fields as needed for future extensibility
 });
 
-/**
- * Interface definition for email configuration
- */
-export interface IEmailConfig {
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPassword: string;
-  fromEmail: string;
-}
+export type EmailConfig = z.infer<typeof EmailConfigSchema>;
 
-/**
- * Email configuration object
- * @remarks
- * This object contains the parsed and validated email configuration.
- */
 const config = EmailConfigSchema.getProperties();
 
-export const emailConfig: IEmailConfig = config as unknown as IEmailConfig;
+export const emailConfig: EmailConfig = config as unknown as EmailConfig;
 
 // Validate the configuration
 try {
@@ -68,7 +48,7 @@ try {
 } catch (error) {
   if (error instanceof Error) {
     console.error('Email configuration validation failed:', error.message);
-    throw new Error('Invalid email configuration');
+    throw new Error('Invalid Email configuration');
   }
   throw error;
 }

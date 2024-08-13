@@ -8,10 +8,16 @@ export class AudioService {
     this.audioProcessor = audioProcessor;
   }
 
-  public async processAudio(audioFile: Buffer, effects: string[]): Promise<Buffer> {
+  public async processAudio(
+    audioFile: Buffer,
+    effects: string[],
+  ): Promise<Buffer> {
     try {
       logger.info(`Processing audio with effects: ${effects.join(', ')}`);
-      const processedAudio = await this.audioProcessor.process(audioFile, effects);
+      const processedAudio = await this.audioProcessor.process(
+        audioFile,
+        effects,
+      );
 
       logger.info('Audio processing completed successfully');
 

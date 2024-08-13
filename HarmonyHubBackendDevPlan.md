@@ -32,9 +32,11 @@ The backend is organized into several modules, each responsible for a specific a
   - **validators/**: Input validation schemas and functions.
   - **app.ts**: Entry point of the application.
 
-- **tests/**: Contains unit and end-to-end tests.
+- **tests/**: Contains testing files.
   - **e2e/**: End-to-end tests.
-
+  - **integration/**: Integration related tests.
+  - **unit/**: Contains all unit tests in parallel structure to src/.
+  
 ## Tech Stack
 
 The backend is built using the following technologies:

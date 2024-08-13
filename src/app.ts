@@ -1,57 +1,26 @@
-// src/app.ts
-
 import { ApolloServer } from 'apollo-server-express';
-import cors from 'cors';
-import express, { Express } from 'express';
-import helmet from 'helmet';
+import express from 'express';
 
-import { connectDB } from './config/database';
-import { resolvers, typeDefs } from './graphql';
-import { errorHandler, notFound } from './middleware';
-import routes from './routes';
+import { serverConfig } from './config/ServerConfig';
+import { resolvers } from './graphql/resolvers';
+import { typeDefs } from './graphql/schema';
+import logger from './utils/logging';
 
-const app: Express = express();
-const port = process.env.PORT || 3000;
+const app = express();
 
-// Middleware
+// Middleware setup
 app.use(express.json());
-app.use(cors());
-app.use(helmet());
-
-// Connect to MongoDB
-connectDB().catch((err: Error): void => {
-  // eslint-disable-next-line no-console
-  console.error('Failed to connect to MongoDB', err);
-  process.exit(1);
-});
+app.use(express.urlencoded({ extended: true }));
 
 // Apollo Server setup
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  context: ({ req }): { req: express.Request } => ({ req }),
+const server = new ApolloServer({ typeDefs, resolvers });
+server.start().then(() => {
+  server.applyMiddleware({ app, path: '/graphql' });
+
+  // Start the server
+  app.listen(serverConfig.port, () => {
+    logger.info(
+      `🚀 Server ready at http://localhost:${serverConfig.port}${server.graphqlPath}`,
+    );
+  });
 });
-
-void server.start().then((): void => {
-  server.applyMiddleware({ app });
-});
-
-// Health check route
-app.get('/health', (req, res): void => {
-  res.status(200).send('OK');
-});
-
-// Routes
-app.use('/api', routes);
-
-// Error handling
-app.use(notFound);
-app.use(errorHandler);
-
-// Start server
-app.listen(port, (): void => {
-  // eslint-disable-next-line no-console
-  console.log(`Server running on port ${port}`);
-});
-
-export default app;

@@ -7,10 +7,19 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
-    "rootDir": "./",
+    "rootDir": ".",
     "resolveJsonModule": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "tests/**/*.ts",
+    ".eslintrc.js",
+    "jest.config.js",
+    "jest.setup.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }

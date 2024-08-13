@@ -10,9 +10,14 @@ export class CustomError extends Error {
    * @param {string} code - The error code
    * @param {number} statusCode - The HTTP status code
    */
-  constructor(public message: string, public code: string, public statusCode: number) {
+  constructor(
+    public message: string,
+    public code: string,
+    public statusCode: number,
+  ) {
     super(message);
     this.name = 'CustomError';
+    Object.setPrototypeOf(this, CustomError.prototype);
   }
 }
 
@@ -22,10 +27,8 @@ export class CustomError extends Error {
  * @returns {{ error: { message: string; code: string; statusCode: number } }} The standardized error response
  */
 export const createErrorResponse = (
-  error: CustomError
-): {
-  error: { message: string; code: string; statusCode: number };
-} => {
+  error: CustomError,
+): { error: { message: string; code: string; statusCode: number } } => {
   return {
     error: {
       message: error.message,
