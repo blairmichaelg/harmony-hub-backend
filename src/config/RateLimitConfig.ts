@@ -28,7 +28,12 @@ export const RateLimitConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type RateLimitConfig = z.ZodType<any, any, any>;
+// Define the RateLimitConfig type based on the schema
+export interface RateLimitConfig {
+  windowMs: number;
+  maxRequests: number;
+  // Add more fields as needed for future extensibility
+}
 
 const config = RateLimitConfigSchema.getProperties();
 

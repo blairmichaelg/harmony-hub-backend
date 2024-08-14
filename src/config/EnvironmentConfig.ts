@@ -9,7 +9,7 @@ import convict from 'convict';
  */
 export const EnvironmentConfigSchema = convict({
   name: {
-    doc: 'Environment name (e.g., development, production)',
+    doc: 'Environment name (e.g., development, production, test)',
     format: ['development', 'production', 'test'],
     default: 'development',
     env: 'NODE_ENV',
@@ -17,15 +17,18 @@ export const EnvironmentConfigSchema = convict({
   // Add more environment-specific fields as needed
 });
 
-export type EnvironmentConfig = {
+// Define the EnvironmentConfig type based on the schema
+export interface EnvironmentConfig {
   name: 'development' | 'production' | 'test';
-};
+  // Add more fields as needed for future extensibility
+}
 
 const config = EnvironmentConfigSchema.getProperties();
 
 export const environmentConfig: EnvironmentConfig =
   config as unknown as EnvironmentConfig;
 
+// Validate the configuration
 try {
   EnvironmentConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {

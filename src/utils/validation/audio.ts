@@ -31,8 +31,7 @@ export const AudioFileExtensionSchema = z
   .refine(
     (ext) =>
       audioProcessingConfig.supportedFormats.some(
-        (format: { extension: string }) =>
-          format.extension === ext.toLowerCase(),
+        (format) => format.extension === ext.toLowerCase(),
       ),
     {
       message: 'Unsupported audio file extension',

@@ -73,12 +73,34 @@ export const StorageConfigSchema = convict({
   },
 });
 
-export type StorageConfig = z.ZodType<any, any, any>;
+// Define the StorageConfig type based on the schema
+export interface StorageConfig {
+  provider: 'local' | 's3';
+  local: {
+    path: string;
+  };
+  s3: {
+    bucket: string;
+    region: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+  };
+  uploadLimits: {
+    maxFileSize: number;
+    allowedMimeTypes: string[];
+  };
+  fileEncryption: {
+    enabled: boolean;
+    key: string;
+  };
+  // Add more fields as needed for future extensibility
+}
 
 const config = StorageConfigSchema.getProperties();
 
 export const storageConfig: StorageConfig = config as unknown as StorageConfig;
 
+// Validate the configuration
 try {
   StorageConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {

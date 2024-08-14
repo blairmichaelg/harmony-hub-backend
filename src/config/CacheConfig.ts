@@ -55,7 +55,21 @@ export const cacheConfigSchema = convict({
   // Add more configuration options as needed
 });
 
-export type CacheConfig = z.ZodType<any, any, any>;
+// Define the CacheConfig type based on the schema
+export interface CacheConfig {
+  local: {
+    type: 'local';
+    ttl: number;
+    maxSize?: number;
+    enableLogging: boolean;
+  };
+  redis: {
+    type: 'redis';
+    ttl: number;
+    enableLogging: boolean;
+  };
+  // Add more configuration options as needed
+}
 
 const config = cacheConfigSchema.getProperties();
 

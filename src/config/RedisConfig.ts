@@ -37,7 +37,14 @@ export const RedisConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type RedisConfig = z.ZodType<any, any, any>;
+// Define the RedisConfig type based on the schema
+export interface RedisConfig {
+  host: string;
+  port: number;
+  password: string;
+  db: number;
+  // Add more fields as needed for future extensibility
+}
 
 const config = RedisConfigSchema.getProperties();
 

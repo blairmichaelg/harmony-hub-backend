@@ -24,13 +24,19 @@ export const LocalizationConfigSchema = convict({
   // Add more localization-specific fields as needed
 });
 
-export type LocalizationConfig = z.ZodType<any, any, any>;
+// Define the LocalizationConfig type based on the schema
+export interface LocalizationConfig {
+  defaultLocale: string;
+  supportedLocales: string[];
+  // Add more fields as needed for future extensibility
+}
 
 const config = LocalizationConfigSchema.getProperties();
 
 export const localizationConfig: LocalizationConfig =
   config as unknown as LocalizationConfig;
 
+// Validate the configuration
 try {
   LocalizationConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {

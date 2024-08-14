@@ -30,7 +30,13 @@ export const ServerConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type ServerConfig = z.ZodType<any, any, any>;
+// Define the ServerConfig type based on the schema
+export interface ServerConfig {
+  host: string;
+  port: number;
+  protocol: 'http' | 'https';
+  // Add more fields as needed for future extensibility
+}
 
 const config = ServerConfigSchema.getProperties();
 

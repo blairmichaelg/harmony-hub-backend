@@ -1,6 +1,7 @@
 // src/config/index.ts
 
 import convict from 'convict';
+
 import logger from '../utils/logging';
 import { AIServicesConfigSchema, aiServicesConfig } from './AIServicesConfig';
 import {
@@ -8,7 +9,7 @@ import {
   audioProcessingConfig,
 } from './AudioProcessingConfig';
 import { AuthConfigSchema, authConfig } from './AuthConfig';
-import { cacheConfigSchema } from './CacheConfig';
+import { cacheConfig, cacheConfigSchema } from './CacheConfig'; // Updated import
 import { DatabaseConfigSchema, databaseConfig } from './DatabaseConfig';
 import { EmailConfigSchema, emailConfig } from './EmailConfig';
 import {
@@ -43,7 +44,7 @@ type ConfigSchema =
   | typeof AIServicesConfigSchema
   | typeof AudioProcessingConfigSchema
   | typeof AuthConfigSchema
-  | typeof cacheConfigSchema
+  | typeof cacheConfigSchema // Updated type
   | typeof DatabaseConfigSchema
   | typeof EmailConfigSchema
   | typeof EnvironmentConfigSchema
@@ -63,7 +64,7 @@ const configs: { name: string; config: ConfigSchema }[] = [
   { name: 'AI Services', config: AIServicesConfigSchema },
   { name: 'Audio Processing', config: AudioProcessingConfigSchema },
   { name: 'Auth', config: AuthConfigSchema },
-  { name: 'Cache', config: cacheConfigSchema },
+  { name: 'Cache', config: cacheConfigSchema }, // Updated config
   { name: 'Database', config: DatabaseConfigSchema },
   { name: 'Email', config: EmailConfigSchema },
   { name: 'Environment', config: EnvironmentConfigSchema },
@@ -97,7 +98,7 @@ export {
   aiServicesConfig,
   audioProcessingConfig,
   authConfig,
-  cacheConfigSchema,
+  cacheConfig, // Updated export
   databaseConfig,
   emailConfig,
   environmentConfig,

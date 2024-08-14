@@ -80,7 +80,32 @@ export const DatabaseConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type DatabaseConfig = z.ZodType<any, any, any>;
+// Define the DatabaseConfig type based on the schema
+export interface DatabaseConfig {
+  type: 'postgres' | 'mongodb';
+  postgres: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    database: string;
+    // Add more PostgreSQL-specific fields as needed
+  };
+  mongodb: {
+    url: string;
+    // Add more MongoDB-specific fields as needed
+  };
+  pool: {
+    min: number;
+    max: number;
+    // Add more pool-specific fields as needed
+  };
+  migrations: {
+    directory: string;
+    // Add more migration-specific fields as needed
+  };
+  // Add more fields as needed for future extensibility
+}
 
 // Create and validate the configuration object
 const config = DatabaseConfigSchema.getProperties();

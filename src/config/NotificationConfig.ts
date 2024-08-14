@@ -38,7 +38,19 @@ export const NotificationConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type NotificationConfig = z.ZodType<any, any, any>;
+// Define the NotificationConfig type based on the schema
+export interface NotificationConfig {
+  fcm: {
+    apiKey: string;
+    // Add more FCM-specific fields as needed
+  };
+  twilio: {
+    accountSid: string;
+    authToken: string;
+    // Add more Twilio-specific fields as needed
+  };
+  // Add more fields as needed for future extensibility
+}
 
 const config = NotificationConfigSchema.getProperties();
 

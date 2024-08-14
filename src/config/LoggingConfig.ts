@@ -43,7 +43,18 @@ export const LoggingConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type LoggingConfig = z.ZodType<any, any, any>;
+// Define the LoggingConfig type based on the schema
+export interface LoggingConfig {
+  level: 'error' | 'warn' | 'info' | 'http' | 'verbose' | 'debug' | 'silly';
+  file: string;
+  console: boolean;
+  anonymization: {
+    enabled: boolean;
+    fields: string[];
+    // Add more fields as needed for future extensibility
+  };
+  // Add more fields as needed for future extensibility
+}
 
 const config = LoggingConfigSchema.getProperties();
 

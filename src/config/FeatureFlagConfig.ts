@@ -18,13 +18,18 @@ export const FeatureFlagsConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type FeatureFlagsConfig = z.ZodType<any, any, any>;
+// Define the FeatureFlagsConfig type based on the schema
+export interface FeatureFlagsConfig {
+  flags: Record<string, boolean>;
+  // Add more fields as needed for future extensibility
+}
 
 const config = FeatureFlagsConfigSchema.getProperties();
 
 export const featureFlagsConfig: FeatureFlagsConfig =
   config as unknown as FeatureFlagsConfig;
 
+// Validate the configuration
 try {
   FeatureFlagsConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {

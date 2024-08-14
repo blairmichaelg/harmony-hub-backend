@@ -56,14 +56,30 @@ export const PerformanceConfigSchema = convict({
   // Add more performance-specific fields as needed
 });
 
-export type PerformanceConfig = z.ZodType<any, any, any>;
+// Define the PerformanceConfig type based on the schema
+export interface PerformanceConfig {
+  maxHeapSize: number;
+  maxEventLoopDelay: number;
+  maxMemoryUsage: number;
+  cdn: {
+    enabled: boolean;
+    domain?: string;
+    // Add more CDN-specific fields as needed
+  };
+  caching: {
+    enabled: boolean;
+    ttl: number;
+    // Add more caching-specific fields as needed
+  };
+  // Add more fields as needed for future extensibility
+}
 
-// Create and validate the configuration object
 const config = PerformanceConfigSchema.getProperties();
 
 export const performanceConfig: PerformanceConfig =
   config as unknown as PerformanceConfig;
 
+// Validate the configuration
 try {
   PerformanceConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {

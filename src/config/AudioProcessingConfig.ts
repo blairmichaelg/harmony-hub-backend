@@ -289,7 +289,7 @@ export const AudioProcessingConfigSchema = convict({
   },
 });
 
-export type AudioProcessingConfig = z.ZodType<any, any, any>;
+export type AudioProcessingConfig = z.infer<typeof audioFormatSchema>;
 
 // Create and validate the configuration object
 const config = AudioProcessingConfigSchema.getProperties();

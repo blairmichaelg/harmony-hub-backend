@@ -1,44 +1,60 @@
 // src/config/AIServicesConfig.ts
 
 import convict from 'convict';
-import { z } from 'zod';
+import * as z from 'zod';
 
 /**
- * Schema for AI services configuration
- * @remarks
- * This schema defines the structure and validation rules for the AI services configuration.
+ * Zod schema for AI services configuration
  */
-export const AIServicesConfigSchema = convict({
-  providers: {
-    doc: 'AI service providers and their configurations',
-    format: z.record(
-      z.string(),
-      z.object({
-        apiKey: z.string().describe('API key for the service'),
-        apiUrl: z.string().url().describe('API endpoint URL'),
-        // Add more provider-specific fields as needed
-      }),
-    ),
-    default: {},
-    env: 'AI_SERVICE_PROVIDERS',
-  },
-  models: {
-    doc: 'AI models and their versions',
-    format: z.record(
-      z.string(),
-      z.object({
-        version: z.string().describe('Model version'),
-        // Add more model-specific fields as needed
-      }),
-    ),
-    default: {},
-    env: 'AI_MODELS',
-  },
-  // Add more fields as needed for future extensibility
+const ZodAIServicesConfigSchema = z.object({
+  providers: z.record(
+    z.string(),
+    z.object({
+      apiKey: z.string().describe('API key for the service'),
+      apiUrl: z.string().url().describe('API endpoint URL for the service'),
+    }),
+  ),
+  defaultProvider: z.string().describe('Default AI service provider'),
+  timeout: z
+    .number()
+    .int()
+    .positive()
+    .describe('Request timeout in milliseconds'),
 });
 
-export type AIServicesConfig = z.ZodType<any, any, any>;
+export const AIServicesConfigSchema = convict({
+  providers: {
+    doc: 'AI service providers configuration',
+    format: ZodAIServicesConfigSchema.shape.providers,
+    default: {
+      openai: {
+        apiKey: 'your-openai-api-key',
+        apiUrl: 'https://api.openai.com/v1',
+      },
+      azure: {
+        apiKey: 'your-azure-api-key',
+        apiUrl: 'https://api.cognitive.microsoft.com',
+      },
+    },
+    env: 'AI_PROVIDERS',
+  },
+  defaultProvider: {
+    doc: 'Default AI service provider',
+    format: 'string',
+    default: 'openai',
+    env: 'AI_DEFAULT_PROVIDER',
+  },
+  timeout: {
+    doc: 'Request timeout in milliseconds',
+    format: 'nat',
+    default: 5000,
+    env: 'AI_TIMEOUT',
+  },
+});
 
+export type AIServicesConfig = z.infer<typeof ZodAIServicesConfigSchema>;
+
+// Create and validate the configuration object
 const config = AIServicesConfigSchema.getProperties();
 
 export const aiServicesConfig: AIServicesConfig =

@@ -166,124 +166,140 @@ Design and implement a robust, flexible, and secure configuration management sys
 - Develop a plugin system for custom configuration providers and validators
 - Create a configuration impact analysis tool for predicting system behavior changes
 
-## Configuration Template
+### Updated Configuration Template
 
 ```typescript
 // src/config/SampleConfig.ts
 
+import convict from 'convict';
 import { z } from 'zod';
-import { getEnvVar, parseJSON } from '../utils/envUtils';
+import { getEnvVar } from '../utils/envUtils';
 
 /**
  * Schema for sample configuration
  * @remarks
  * This schema defines the structure and validation rules for the sample configuration.
  */
-export const SampleConfigSchema = z.object({
-  featureName: z.string().describe('Name of the feature'),
-  isEnabled: z.coerce
-    .boolean()
-    .default(false)
-    .describe('Whether the feature is enabled'),
-  maxItems: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(10)
-    .describe('Maximum number of items'),
-  apiUrl: z.string().url().describe('API endpoint URL'),
-  secretKey: z.string().min(32).describe('Secret key for API authentication'),
+export const SampleConfigSchema = convict({
+  featureName: {
+    doc: 'Name of the feature',
+    format: String,
+    default: 'defaultFeature',
+    env: 'FEATURE_NAME',
+  },
+  isEnabled: {
+    doc: 'Whether the feature is enabled',
+    format: Boolean,
+    default: false,
+    env: 'FEATURE_ENABLED',
+  },
+  maxItems: {
+    doc: 'Maximum number of items',
+    format: Number,
+    default: 10,
+    env: 'MAX_ITEMS',
+  },
+  apiUrl: {
+    doc: 'API endpoint URL',
+    format: 'url',
+    default: '',
+    env: 'API_URL',
+  },
+  secretKey: {
+    doc: 'Secret key for API authentication',
+    format: String,
+    default: '',
+    env: 'SECRET_KEY',
+    sensitive: true,
+  },
 });
 
 /**
  * Type definition for sample configuration
  */
-export type SampleConfig = z.infer<typeof SampleConfigSchema>;
+export interface SampleConfig {
+  featureName: string;
+  isEnabled: boolean;
+  maxItems: number;
+  apiUrl: string;
+  secretKey: string;
+}
 
 /**
  * Sample configuration object
  * @remarks
  * This object contains the parsed and validated sample configuration.
  */
-export const sampleConfig: SampleConfig = SampleConfigSchema.parse({
-  featureName: getEnvVar('FEATURE_NAME', 'defaultFeature'),
-  isEnabled: getEnvVar('FEATURE_ENABLED', 'false'),
-  maxItems: getEnvVar('MAX_ITEMS', '10'),
-  apiUrl: getEnvVar('API_URL'),
-  secretKey: getEnvVar('SECRET_KEY'),
-});
+const config = SampleConfigSchema.getProperties();
+
+export const sampleConfig: SampleConfig = config as unknown as SampleConfig;
 
 // Validate the configuration
 try {
-  SampleConfigSchema.parse(sampleConfig);
+  SampleConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {
-  if (error instanceof z.ZodError) {
-    console.error('Sample configuration validation failed:');
-    error.errors.forEach((err) => {
-      console.error(`- ${err.path.join('.')}: ${err.message}`);
-    });
+  if (error instanceof Error) {
+    console.error('Sample configuration validation failed:', error.message);
     throw new Error('Invalid sample configuration');
   }
   throw error;
 }
+
+export default sampleConfig;
 ```
 
 ### Consistencies Across Configuration Files
 
 1. **Imports**:
 
+   - Import Convict: `import convict from 'convict';`
    - Import Zod: `import { z } from 'zod';`
-   - Import utility functions from a shared file: `import { getEnvVar, parseJSON } from '../utils/envUtils';`
+   - Import utility functions from a shared file: `import { getEnvVar } from '../utils/envUtils';`
 
 2. **Schema Definition**:
 
-   - Use PascalCase for schema names, ending with "Schema": `export const ConfigNameSchema = z.object({...});`
-   - Use Zod's `z.object()` for defining schemas
-   - Utilize Zod's built-in validators and transformers (e.g., `z.coerce.number()`, `z.string().url()`)
-   - Add `.describe()` to each field for documentation
+   - Use PascalCase for schema names, ending with "Schema": `export const ConfigNameSchema = convict({...});`
+   - Use Convict for defining schemas
+   - Utilize Convict's built-in validators and transformers (e.g., `format: 'url'`, `format: Boolean`)
+   - Add `doc` to each field for documentation
 
 3. **Type Definition**:
 
-   - Export a type derived from the schema: `export type ConfigName = z.infer<typeof ConfigNameSchema>;`
+   - Export an interface derived from the schema: `export interface ConfigName {...};`
 
 4. **Configuration Object**:
 
-   - Use camelCase for config object names: `export const configName: ConfigName = ConfigNameSchema.parse({...});`
+   - Use camelCase for config object names: `export const configName: ConfigName = config as unknown as ConfigName;`
    - Parse environment variables within the configuration object
 
 5. **Environment Variable Handling**:
 
    - Use `getEnvVar` function for all environment variable access
    - Provide default values where appropriate: `getEnvVar('VAR_NAME', 'default_value')`
-   - Use `z.coerce.number()` for number parsing instead of manual `parseInt`
 
-6. **Refinements and Custom Validation**:
+6. **Error Handling**:
 
-   - Use Zod's `.refine()` method for complex validations that can't be expressed with basic Zod validators
-
-7. **Error Handling**:
-
-   - Implement try-catch block for schema parsing
-   - Log detailed error messages for Zod validation failures
+   - Implement try-catch block for schema validation
+   - Log detailed error messages for validation failures
    - Throw a custom error after logging validation failures
 
-8. **Comments and Documentation**:
+7. **Comments and Documentation**:
 
    - Use JSDoc style comments for schemas, types, and exported constants
    - Provide detailed descriptions for each configuration option
 
-9. **Default Values**:
+8. **Default Values**:
 
    - Provide sensible default values for optional configuration parameters
 
-10. **File Structure**:
+9. **File Structure**:
 
-    - Start with a file-level comment describing the purpose of the configuration
-    - Order: imports, schema definition, type definition, configuration object, error handling
+   - Start with a file-level comment describing the purpose of the configuration
+   - Order: imports, schema definition, type definition, configuration object, error handling
 
-11. **Naming Conventions**:
+10. **Naming Conventions**:
 
     - Use singular nouns for configuration object names (e.g., `databaseConfig`, not `databasesConfig`)
 
-12. **Extensibility**:
+11. **Extensibility**:
     - Design schemas to be easily extensible for future additions

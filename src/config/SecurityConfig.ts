@@ -91,14 +91,39 @@ export const SecurityConfigSchema = convict({
   },
 });
 
-export type SecurityConfig = z.ZodType<any, any, any>;
+// Define the SecurityConfig type based on the schema
+export interface SecurityConfig {
+  jwtSecret: string;
+  saltRounds: number;
+  tokenExpiration: string;
+  fileEncryption: {
+    enabled: boolean;
+    key: string;
+    // Add more file encryption-specific fields as needed
+  };
+  cors: {
+    origin?: string;
+    methods?: string[];
+    allowedHeaders?: string[];
+    exposedHeaders?: string[];
+    credentials?: boolean;
+  };
+  rateLimiting: {
+    enabled: boolean;
+    windowMs: number;
+    max: number;
+    keyGenerator?: string;
+  };
+  contentSecurityPolicy?: string;
+  // Add more fields as needed for future extensibility
+}
 
-// Create and validate the configuration object
 const config = SecurityConfigSchema.getProperties();
 
 export const securityConfig: SecurityConfig =
   config as unknown as SecurityConfig;
 
+// Validate the configuration
 try {
   SecurityConfigSchema.validate({ allowed: 'strict' });
 } catch (error) {

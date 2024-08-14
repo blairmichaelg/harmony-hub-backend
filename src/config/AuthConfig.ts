@@ -132,7 +132,41 @@ export const AuthConfigSchema = convict({
   },
 });
 
-export type AuthConfig = z.ZodType<any, any, any>;
+// Define the AuthConfig type based on the schema
+export interface AuthConfig {
+  jwt: {
+    secret: string;
+    expiresIn: string;
+  };
+  oauth2: {
+    enabled: boolean;
+    providers: Record<
+      string,
+      {
+        clientId: string;
+        clientSecret: string;
+        callbackURL: string;
+      }
+    >;
+  };
+  twoFactorAuthentication: {
+    enabled: boolean;
+    providers: ('email' | 'sms' | 'authenticator')[];
+  };
+  rateLimiting: {
+    maxRequests: number;
+    windowMs: number;
+  };
+  cors: {
+    origin: string[];
+    methods: ('GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS')[];
+  };
+  helmet: {
+    contentSecurityPolicy: boolean;
+    xssFilter: boolean;
+  };
+  enableSSL: boolean;
+}
 
 // Create and validate the configuration object
 const config = AuthConfigSchema.getProperties();

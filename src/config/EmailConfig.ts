@@ -36,7 +36,18 @@ export const EmailConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type EmailConfig = z.ZodType<any, any, any>;
+// Define the EmailConfig type based on the schema
+export interface EmailConfig {
+  smtp: {
+    host: string;
+    port: number;
+    user: string;
+    password: string;
+    // Add more SMTP-specific fields as needed
+  };
+  fromEmail: string;
+  // Add more fields as needed for future extensibility
+}
 
 const config = EmailConfigSchema.getProperties();
 
