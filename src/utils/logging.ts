@@ -1,12 +1,31 @@
 // src/utils/logging.ts
 
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { createLogger, format, transports } from 'winston';
-import { loggingConfig } from '../config/LoggingConfig';
+
+import 'winston-daily-rotate-file';
+import config from '../config';
 import { CustomError } from './errorUtils';
 
+const loggerTransports = [];
+
+if (config.logging.console) {
+  loggerTransports.push(new transports.Console());
+}
+
+if (config.logging.file) {
+  loggerTransports.push(
+    new transports.DailyRotateFile({
+      filename: config.logging.file,
+      datePattern: 'YYYY-MM-DD',
+      maxSize: '20m',
+      maxFiles: '14d',
+    }),
+  );
+}
+
 const logger = createLogger({
-  level: loggingConfig.level,
+  level: config.logging.level,
   format: format.combine(
     format.timestamp(),
     format.json(),
@@ -16,22 +35,14 @@ const logger = createLogger({
       }`;
     }),
   ),
-  transports: [
-    loggingConfig.console // Use console config value
-      ? new transports.Console()
-      : undefined,
-    loggingConfig.file
-      ? new transports.File({ filename: loggingConfig.file })
-      : undefined,
-  ].filter(Boolean) as transports.TransportStream[],
+  transports: loggerTransports,
 });
 
 /**
  * Logs an HTTP request
  * @param {Request} req - The Express request object
- * @param {Response} res - The Express response object
  */
-export const logRequest = (req: Request, res: Response): void => {
+export const logRequest = (req: Request): void => {
   logger.http(`HTTP ${req.method} ${req.url}`, {
     headers: req.headers,
     body: req.body,
@@ -58,19 +69,23 @@ export const logErrorWithStack = (error: Error): void => {
 
 /**
  * Anonymizes log data based on configuration
- * @param {any} logData - The log data to anonymize
- * @returns {any} The anonymized log data
+ * @param {LogData} logData - The log data to anonymize
+ * @returns {LogData} The anonymized log data
  */
-export const anonymizeLogData = (logData: any): any => {
-  // This function is currently not used and might need to be implemented
-  // based on your specific anonymization requirements.
+interface LogData {
+  [key: string]: unknown;
+  userId?: string;
+  message: string;
+  timestamp: Date;
+}
+
+export const anonymizeLogData = (logData: LogData): LogData => {
   const anonymizedData = { ...logData };
-  // Example: Remove sensitive fields
-  // if (loggingConfig.anonymization && loggingConfig.anonymization.fields) {
-  //   loggingConfig.anonymization.fields.forEach((field: string) => {
-  //     delete anonymizedData[field];
-  //   });
-  // }
+  if (config.logging.anonymization && config.logging.anonymization.fields) {
+    config.logging.anonymization.fields.forEach((field: string) => {
+      delete anonymizedData[field];
+    });
+  }
   return anonymizedData;
 };
 

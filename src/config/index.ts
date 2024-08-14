@@ -9,7 +9,7 @@ import {
   audioProcessingConfig,
 } from './AudioProcessingConfig';
 import { AuthConfigSchema, authConfig } from './AuthConfig';
-import { cacheConfig, cacheConfigSchema } from './CacheConfig'; // Updated import
+import { cacheConfig, cacheConfigSchema } from './CacheConfig';
 import { DatabaseConfigSchema, databaseConfig } from './DatabaseConfig';
 import { EmailConfigSchema, emailConfig } from './EmailConfig';
 import {
@@ -44,7 +44,7 @@ type ConfigSchema =
   | typeof AIServicesConfigSchema
   | typeof AudioProcessingConfigSchema
   | typeof AuthConfigSchema
-  | typeof cacheConfigSchema // Updated type
+  | typeof cacheConfigSchema
   | typeof DatabaseConfigSchema
   | typeof EmailConfigSchema
   | typeof EnvironmentConfigSchema
@@ -64,7 +64,7 @@ const configs: { name: string; config: ConfigSchema }[] = [
   { name: 'AI Services', config: AIServicesConfigSchema },
   { name: 'Audio Processing', config: AudioProcessingConfigSchema },
   { name: 'Auth', config: AuthConfigSchema },
-  { name: 'Cache', config: cacheConfigSchema }, // Updated config
+  { name: 'Cache', config: cacheConfigSchema },
   { name: 'Database', config: DatabaseConfigSchema },
   { name: 'Email', config: EmailConfigSchema },
   { name: 'Environment', config: EnvironmentConfigSchema },
@@ -93,12 +93,33 @@ configs.forEach(({ name, config: configItem }) => {
   }
 });
 
-// Export all configurations
+// Combine all configurations into a single config object
+const config = {
+  aiServices: aiServicesConfig,
+  audioProcessing: audioProcessingConfig,
+  auth: authConfig,
+  cache: cacheConfig,
+  database: databaseConfig,
+  email: emailConfig,
+  environment: environmentConfig,
+  featureFlags: featureFlagsConfig,
+  localization: localizationConfig,
+  logging: loggingConfig,
+  notification: notificationConfig,
+  performance: performanceConfig,
+  rateLimit: rateLimitConfig,
+  redis: redisConfig,
+  security: securityConfig,
+  server: serverConfig,
+  storage: storageConfig,
+};
+
+export default config;
 export {
   aiServicesConfig,
   audioProcessingConfig,
   authConfig,
-  cacheConfig, // Updated export
+  cacheConfig,
   databaseConfig,
   emailConfig,
   environmentConfig,
