@@ -2,6 +2,7 @@
 
 import Redis from 'ioredis';
 import NodeCache from 'node-cache';
+
 import { cacheConfigSchema } from '../config/CacheConfig';
 import { redisConfig } from '../config/RedisConfig';
 import logger from './logging';
