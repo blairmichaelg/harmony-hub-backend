@@ -53,6 +53,12 @@ export const PerformanceConfigSchema = convict({
     },
     env: 'CACHING_CONFIG',
   },
+  complexFactor: {
+    doc: 'Complex factor for performance calculations',
+    format: 'int',
+    default: 10,
+    env: 'COMPLEX_FACTOR',
+  },
   // Add more performance-specific fields as needed
 });
 
@@ -71,6 +77,7 @@ export interface PerformanceConfig {
     ttl: number;
     // Add more caching-specific fields as needed
   };
+  complexFactor: number;
   // Add more fields as needed for future extensibility
 }
 

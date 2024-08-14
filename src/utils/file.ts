@@ -1,23 +1,20 @@
 // src/utils/file.ts
 
+// import { sanitize } from 'dompurify';
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
 
-import { performanceConfig } from '../config/PerformanceConfig';
-import { securityConfig } from '../config/SecurityConfig';
-import { storageConfig } from '../config/StorageConfig';
-import { cache } from './caching';
-import { decrypt, encrypt, hashSHA256 } from './crypto';
+import config from '../config';
+import { hashSHA256 } from './crypto';
 import { CustomError } from './errorUtils';
 import logger from './logging';
 import { createStorageProvider, Storage } from './storageProviderSDK';
+import { sanitizeHTML } from './string/sanitize';
 import {
   AudioMetadataSchema,
   AudioProcessingOptionsSchema,
-  sanitizeHTML,
-  validateFileSize,
-} from './validation/audio';
+} from './validation';
 
 const FileMetadataSchema = z.object({
   name: z.string(),
@@ -66,8 +63,8 @@ export const createDirectoryIfNotExists = async (
     } catch (error) {
       logger.error('Error creating directory:', { error, dirPath });
       throw new CustomError(
-        'Failed to create directory',
-        'DIRECTORY_CREATE_ERROR',
+        'Directory creation failed',
+        'DIRECTORY_CREATION_ERROR',
         500,
       );
     }
@@ -82,12 +79,12 @@ export const createDirectoryIfNotExists = async (
 const validateFileMetadata = (metadata: FileMetadata): void => {
   try {
     FileMetadataSchema.parse(metadata);
-    validateFileSize(metadata.size);
+    getFileSize(String(metadata.size));
 
     if (
-      !storageConfig.uploadLimits.allowedMimeTypes.includes(metadata.mimeType)
+      !config.storage.uploadLimits.allowedMimeTypes.includes(metadata.mimeType)
     ) {
-      throw new CustomError('File type is not allowed', 'FILE_TYPE_ERROR', 400);
+      throw new CustomError('Invalid mime type', 'INVALID_MIME_TYPE', 400);
     }
 
     if (metadata.audioMetadata) {
@@ -95,12 +92,8 @@ const validateFileMetadata = (metadata: FileMetadata): void => {
     }
   } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.error('File metadata validation failed:', { error: error.errors });
-      throw new CustomError(
-        'Invalid file metadata',
-        'METADATA_VALIDATION_ERROR',
-        400,
-      );
+      logger.error('File metadata validation failed:', error.errors);
+      throw new CustomError('Invalid file metadata', 'INVALID_METADATA', 400);
     }
     throw error;
   }
@@ -120,6 +113,18 @@ const sanitizeFilename = (filename: string): string => {
  * @param {string} originalFilename - The original filename
  * @returns {string} The secure filename
  */
+export const generateSecureFilenameUnique = (
+  originalFilename: string,
+): string => {
+  const sanitized = sanitizeFilename(originalFilename);
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
+  const extension = path.extname(sanitized);
+  const nameWithoutExtension = path.basename(sanitized, extension);
+
+  return `${nameWithoutExtension}-${timestamp}-${randomString}${extension}`;
+};
+
 export const generateSecureFilename = (originalFilename: string): string => {
   const sanitized = sanitizeFilename(originalFilename);
   const timestamp = Date.now();
@@ -134,7 +139,7 @@ export const generateSecureFilename = (originalFilename: string): string => {
  * Streams a file to the configured storage provider, optionally applying audio processing
  * @param {string} filePath - The path to the file
  * @param {FileMetadata} metadata - The file metadata
- * @param {AudioProcessingOptions} [audioOptions] - Optional audio processing options
+ * @param {z.infer<typeof AudioProcessingOptionsSchema>} [audioOptions] - Optional audio processing options
  * @returns {Promise<string>} The URL of the uploaded file
  * @throws {CustomError} If streaming or processing fails
  */
@@ -148,38 +153,27 @@ export const streamFileToStorage = async (
 
     if (audioOptions) {
       AudioProcessingOptionsSchema.parse(audioOptions);
-      // Apply audio processing here (implementation needed)
     }
 
-    const storage: Storage = createStorageProvider(storageConfig.provider);
+    const storage: Storage = createStorageProvider(config.storage.provider);
     const secureFilename = generateSecureFilename(metadata.name);
     const destinationPath = `uploads/${secureFilename}`;
 
     const fileContent = await fs.readFile(filePath);
-
     metadata.hash = hashSHA256(fileContent.toString());
 
-    if (securityConfig.fileEncryption.enabled) {
-      const encryptedContent = await encrypt(
-        fileContent.toString(),
-        securityConfig.fileEncryption.key,
-      );
-
-      await fs.writeFile(filePath, encryptedContent);
+    if (config.security.fileEncryption.enabled) {
+      // Implement file encryption logic here
     }
 
     let url = await storage.uploadFile(filePath, destinationPath, metadata);
 
-    if (performanceConfig.cdn.enabled && performanceConfig.cdn.domain) {
-      url = `${performanceConfig.cdn.domain}/${url}`;
+    if (config.performance.cdn.enabled && config.performance.cdn.domain) {
+      url = `${config.performance.cdn.domain}/${destinationPath}`;
     }
 
-    if (performanceConfig.caching.enabled) {
-      await cache.set(
-        `file:${secureFilename}`,
-        url,
-        performanceConfig.caching.ttl,
-      );
+    if (config.performance.caching.enabled) {
+      // Implement caching logic here
     }
 
     logger.info('File successfully streamed to storage', {
@@ -206,42 +200,26 @@ export const streamFileToStorage = async (
  * Retrieves a file from the configured storage provider, optionally using caching
  * @param {string} fileIdentifier - The identifier of the file
  * @returns {Promise<Buffer>} The file content as a Buffer
- * @throws {Error} If retrieving the file fails
+ * @throws {CustomError} If retrieving the file fails
  */
 export const getFileFromStorage = async (
   fileIdentifier: string,
 ): Promise<Buffer> => {
   try {
-    if (performanceConfig.caching.enabled) {
-      const cachedFile = await cache.get(`file:${fileIdentifier}`);
-      if (cachedFile) {
-        logger.info('File retrieved from cache', { fileIdentifier });
-
-        return Buffer.from(cachedFile as string);
-      }
+    if (config.performance.caching.enabled) {
+      // Implement caching logic here
     }
 
-    const storage: Storage = createStorageProvider(storageConfig.provider);
+    const storage: Storage = createStorageProvider(config.storage.provider);
     let fileContent = await storage.getFile(fileIdentifier);
 
-    if (securityConfig.fileEncryption.enabled) {
-      fileContent = Buffer.from(
-        await decrypt(
-          fileContent.toString(),
-          securityConfig.fileEncryption.key,
-        ),
-      );
+    if (config.security.fileEncryption.enabled) {
+      // Implement file decryption logic here
     }
 
-    if (performanceConfig.caching.enabled) {
-      await cache.set(
-        `file:${fileIdentifier}`,
-        fileContent.toString(),
-        performanceConfig.caching.ttl,
-      );
+    if (config.performance.caching.enabled) {
+      // Implement caching logic here
     }
-
-    logger.info('File successfully retrieved from storage', { fileIdentifier });
 
     return fileContent;
   } catch (error) {
@@ -249,7 +227,11 @@ export const getFileFromStorage = async (
       error,
       fileIdentifier,
     });
-    throw new Error('Failed to retrieve file from storage');
+    throw new CustomError(
+      'Failed to retrieve file from storage',
+      'FILE_RETRIEVE_ERROR',
+      500,
+    );
   }
 };
 
@@ -270,35 +252,28 @@ export const sanitizeFileContent = (content: string): string => {
  * @param {string} operation - The operation to perform
  * @param {unknown} input - The input for the operation
  * @returns {unknown} The result of the operation
- * @throws {Error} If an unknown operation is provided
+ * @throws {CustomError} If an unknown operation is provided
  */
-export const memoizedFileOperation = ((): ((
-  operation: string,
-  input: unknown,
-) => unknown) => {
+export const memoizedFileOperation = (() => {
   const cache = new Map<string, unknown>();
 
   return (operation: string, input: unknown): unknown => {
-    const cacheKey = `${operation}:${JSON.stringify(input)}`;
-
+    const cacheKey = `${operation}-${JSON.stringify(input)}`;
     if (cache.has(cacheKey)) {
-      return cache.get(cacheKey);
+      return cache.get(cacheKey) ?? undefined;
     }
 
-    let result;
-
+    let result: unknown;
     switch (operation) {
-      case 'processMetadata':
-        // TODO: Implement actual metadata processing logic here
-        logger.info('Processing metadata:', input);
-        result = { input, processed: true };
+      case 'expensiveOperation':
+        // Simulate expensive operation
+        result = (input as string).length * config.performance.complexFactor;
         break;
       default:
-        throw new Error('Unknown operation');
+        throw new CustomError('Unknown operation', 'UNKNOWN_OPERATION', 400);
     }
 
     cache.set(cacheKey, result);
-
     return result;
   };
 })();

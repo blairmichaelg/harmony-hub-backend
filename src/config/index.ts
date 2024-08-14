@@ -1,5 +1,3 @@
-// src/config/index.ts
-
 import convict from 'convict';
 
 import logger from '../utils/logging';

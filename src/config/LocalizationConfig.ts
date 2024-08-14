@@ -1,5 +1,3 @@
-// src/config/LocalizationConfig.ts
-
 import convict from 'convict';
 import { z } from 'zod';
 
@@ -21,6 +19,15 @@ export const LocalizationConfigSchema = convict({
     default: ['en-US'],
     env: 'SUPPORTED_LOCALES',
   },
+  dateTimeFormat: {
+    doc: 'Date and time format settings',
+    format: Object,
+    default: {
+      shortDate: 'MM/dd/yyyy',
+      longDate: 'MMMM dd, yyyy',
+      time: 'HH:mm:ss',
+    },
+  },
   // Add more localization-specific fields as needed
 });
 
@@ -28,6 +35,11 @@ export const LocalizationConfigSchema = convict({
 export interface LocalizationConfig {
   defaultLocale: string;
   supportedLocales: string[];
+  dateTimeFormat: {
+    shortDate: string;
+    longDate: string;
+    time: string;
+  };
   // Add more fields as needed for future extensibility
 }
 

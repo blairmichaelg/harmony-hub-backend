@@ -2,24 +2,34 @@
 
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
-import jwt from 'jsonwebtoken'; // Import JWT directly
+import jwt from 'jsonwebtoken';
+import { z } from 'zod';
 
-import { authConfig } from '../config/AuthConfig';
-import { securityConfig } from '../config/SecurityConfig';
+import config from '../config';
 import { CustomError } from './errorUtils';
 import logger from './logging';
 
-/**
- * Securely hashes a password using bcrypt
- * @param {string} password - The password to hash
- * @returns {Promise<string>} The hashed password
- * @throws {CustomError} If hashing fails
- */
+// Define a schema for JWT settings
+const JwtSettingsSchema = z.object({
+  secret: z.string().nonempty(),
+  expiresIn: z.string().nonempty(),
+});
+
+// Define a schema for security settings
+const SecuritySettingsSchema = z.object({
+  saltRounds: z.number().positive(),
+});
+
+// Validate JWT and security settings from config
+const jwtSettings = JwtSettingsSchema.parse(config.auth.jwt);
+const securitySettings = SecuritySettingsSchema.parse(config.security);
+
+// Function to securely hash a password using bcrypt
 export const hashPassword = async (password: string): Promise<string> => {
   try {
     const hashedPassword = await bcrypt.hash(
       password,
-      securityConfig.saltRounds,
+      securitySettings.saltRounds,
     );
     return hashedPassword;
   } catch (error) {
@@ -32,13 +42,7 @@ export const hashPassword = async (password: string): Promise<string> => {
   }
 };
 
-/**
- * Compares a plain text password with a hashed password
- * @param {string} password - The plain text password
- * @param {string} hash - The hashed password
- * @returns {Promise<boolean>} True if the passwords match, false otherwise
- * @throws {CustomError} If comparison fails
- */
+// Function to compare a plain text password with a hashed password
 export const comparePassword = async (
   password: string,
   hash: string,
@@ -56,22 +60,12 @@ export const comparePassword = async (
   }
 };
 
-/**
- * Generates a cryptographically secure random string
- * @param {number} length - The desired length of the random string
- * @returns {string} The generated random string
- */
+// Function to generate a cryptographically secure random string
 export const generateRandomString = (length: number): string => {
   return crypto.randomBytes(length).toString('hex');
 };
 
-/**
- * Encrypts data using AES-256-CBC
- * @param {string} data - The data to encrypt
- * @param {string} key - The encryption key
- * @returns {Promise<string>} The encrypted data
- * @throws {CustomError} If encryption fails
- */
+// Function to encrypt data using AES-256-CBC
 export const encrypt = async (data: string, key: string): Promise<string> => {
   try {
     const iv = crypto.randomBytes(16);
@@ -85,13 +79,7 @@ export const encrypt = async (data: string, key: string): Promise<string> => {
   }
 };
 
-/**
- * Decrypts data using AES-256-CBC
- * @param {string} encryptedData - The encrypted data
- * @param {string} key - The decryption key
- * @returns {Promise<string>} The decrypted data
- * @throws {CustomError} If decryption fails
- */
+// Function to decrypt data using AES-256-CBC
 export const decrypt = async (
   encryptedData: string,
   key: string,
@@ -113,25 +101,16 @@ export const decrypt = async (
   }
 };
 
-/**
- * Generates a SHA-256 hash of a string
- * @param {string} data - The data to hash
- * @returns {string} The SHA-256 hash
- */
+// Function to generate a SHA-256 hash of a string
 export const hashSHA256 = (data: string): string => {
   return crypto.createHash('sha256').update(data).digest('hex');
 };
 
-/**
- * Signs data using the configured JWT secret and algorithm
- * @param {object} payload - The data to sign
- * @returns {Promise<string>} The signed JWT token
- * @throws {CustomError} If signing fails
- */
+// Function to sign data using the configured JWT secret and algorithm
 export const signJWT = async (payload: object): Promise<string> => {
   try {
-    return jwt.sign(payload, authConfig.jwt.secret, {
-      expiresIn: authConfig.jwt.expiresIn,
+    return jwt.sign(payload, jwtSettings.secret, {
+      expiresIn: jwtSettings.expiresIn,
     });
   } catch (error) {
     logger.error('JWT signing failed:', error);
@@ -139,15 +118,10 @@ export const signJWT = async (payload: object): Promise<string> => {
   }
 };
 
-/**
- * Verifies a JWT token using the configured JWT secret and algorithm
- * @param {string} token - The JWT token to verify
- * @returns {Promise<object | string>} The decoded payload if the token is valid, otherwise throws an error
- * @throws {CustomError} If verification fails
- */
+// Function to verify a JWT token using the configured JWT secret and algorithm
 export const verifyJWT = async (token: string): Promise<object | string> => {
   try {
-    return jwt.verify(token, authConfig.jwt.secret);
+    return jwt.verify(token, jwtSettings.secret);
   } catch (error) {
     logger.error('JWT verification failed:', error);
     throw new CustomError(
