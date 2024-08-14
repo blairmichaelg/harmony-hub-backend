@@ -56,7 +56,7 @@ export const PerformanceConfigSchema = convict({
   // Add more performance-specific fields as needed
 });
 
-export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>;
+export type PerformanceConfig = z.ZodType<any, any, any>;
 
 // Create and validate the configuration object
 const config = PerformanceConfigSchema.getProperties();

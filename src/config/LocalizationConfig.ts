@@ -24,9 +24,8 @@ export const LocalizationConfigSchema = convict({
   // Add more localization-specific fields as needed
 });
 
-export type LocalizationConfig = z.infer<typeof LocalizationConfigSchema>;
+export type LocalizationConfig = z.ZodType<any, any, any>;
 
-// Create and validate the configuration object
 const config = LocalizationConfigSchema.getProperties();
 
 export const localizationConfig: LocalizationConfig =

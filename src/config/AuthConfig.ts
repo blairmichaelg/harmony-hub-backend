@@ -132,7 +132,7 @@ export const AuthConfigSchema = convict({
   },
 });
 
-export type AuthConfig = z.infer<typeof AuthConfigSchema>;
+export type AuthConfig = z.ZodType<any, any, any>;
 
 // Create and validate the configuration object
 const config = AuthConfigSchema.getProperties();

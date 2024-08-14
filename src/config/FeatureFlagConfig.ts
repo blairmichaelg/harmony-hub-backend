@@ -18,9 +18,8 @@ export const FeatureFlagsConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type FeatureFlagsConfig = z.infer<typeof FeatureFlagsConfigSchema>;
+export type FeatureFlagsConfig = z.ZodType<any, any, any>;
 
-// Create and validate the configuration object
 const config = FeatureFlagsConfigSchema.getProperties();
 
 export const featureFlagsConfig: FeatureFlagsConfig =

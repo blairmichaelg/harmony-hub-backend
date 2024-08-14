@@ -73,7 +73,7 @@ export const StorageConfigSchema = convict({
   },
 });
 
-export type StorageConfig = z.infer<typeof StorageConfigSchema>;
+export type StorageConfig = z.ZodType<any, any, any>;
 
 const config = StorageConfigSchema.getProperties();
 

@@ -7,6 +7,7 @@ import * as z from 'zod';
 const audioFormatSchema = z.object({
   extension: z.string().describe('File extension for the audio format'),
   mimeType: z.string().describe('MIME type for the audio format'),
+  codec: z.string().optional().describe('Codec for the audio format'),
   bitrate: z
     .number()
     .int()
@@ -35,31 +36,40 @@ export const AudioProcessingConfigSchema = convict({
       {
         extension: 'mp3',
         mimeType: 'audio/mpeg',
+        codec: 'mp3',
         bitrate: 320000,
         channels: 2,
       },
       {
         extension: 'wav',
         mimeType: 'audio/wav',
+        codec: 'pcm',
         sampleRate: 44100,
         channels: 2,
       },
-      { extension: 'ogg', mimeType: 'audio/ogg', bitrate: 128000, channels: 2 },
-      { extension: 'aac', mimeType: 'audio/aac', bitrate: 256000, channels: 2 },
+      {
+        extension: 'ogg',
+        mimeType: 'audio/ogg',
+        codec: 'vorbis',
+        bitrate: 128000,
+        channels: 2,
+      },
+      {
+        extension: 'aac',
+        mimeType: 'audio/aac',
+        codec: 'aac',
+        bitrate: 256000,
+        channels: 2,
+      },
       {
         extension: 'flac',
         mimeType: 'audio/flac',
+        codec: 'flac',
         sampleRate: 96000,
         channels: 2,
       },
     ],
     env: 'AUDIO_SUPPORTED_FORMATS',
-  },
-  maxFileSize: {
-    doc: 'Maximum allowed file size in bytes',
-    format: 'number',
-    default: 104857600, // 100MB
-    env: 'AUDIO_MAX_FILE_SIZE',
   },
   defaultCodec: {
     doc: 'Default audio codec to use',
@@ -279,7 +289,7 @@ export const AudioProcessingConfigSchema = convict({
   },
 });
 
-export type AudioProcessingConfig = z.infer<typeof AudioProcessingConfigSchema>;
+export type AudioProcessingConfig = z.ZodType<any, any, any>;
 
 // Create and validate the configuration object
 const config = AudioProcessingConfigSchema.getProperties();

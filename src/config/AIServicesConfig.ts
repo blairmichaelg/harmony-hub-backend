@@ -37,7 +37,7 @@ export const AIServicesConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type AIServicesConfig = z.infer<typeof AIServicesConfigSchema>;
+export type AIServicesConfig = z.ZodType<any, any, any>;
 
 const config = AIServicesConfigSchema.getProperties();
 

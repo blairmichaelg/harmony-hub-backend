@@ -37,7 +37,7 @@ export const RedisConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type RedisConfig = z.infer<typeof RedisConfigSchema>;
+export type RedisConfig = z.ZodType<any, any, any>;
 
 const config = RedisConfigSchema.getProperties();
 

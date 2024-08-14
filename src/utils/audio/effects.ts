@@ -1,5 +1,6 @@
 // src/utils/audio/effects.ts
 
+import { createAudioContext } from 'web-audio-api';
 import { audioProcessingConfig } from '../../config/AudioProcessingConfig';
 import { CustomError } from '../errorUtils';
 import {
@@ -8,7 +9,7 @@ import {
 } from '../validation/audio';
 
 /**
- * Applies reverb to an audio buffer
+ * Applies reverb to an audio buffer using the `Tuna` library
  * @param {Float32Array} audioBuffer - The audio buffer
  * @param {ReverbSettings} settings - Reverb settings
  * @returns {Promise<Float32Array>} A promise resolving to the processed audio buffer
@@ -24,15 +25,37 @@ export const applyReverb = async (
     const preset =
       audioProcessingConfig.effects.reverb.presets[settings.presetName];
 
-    // TODO: Implement actual reverb processing using a library like Tuna here.
-    // Use the 'preset' values to configure the reverb effect.
+    const audioContext = createAudioContext();
+    const tuna = new (require('tuna'))(audioContext); // Import Tuna dynamically
 
-    // Example using a simple gain adjustment for demonstration:
-    const wetGain = preset.wetLevel;
-    const dryGain = preset.dryLevel;
-    const processedBuffer = audioBuffer.map(
-      (sample) => sample * (wetGain + dryGain),
+    const reverb = new tuna.Convolver({
+      roomSize: preset.roomSize,
+      damping: preset.damping,
+      wetLevel: preset.wetLevel,
+      dryLevel: preset.dryLevel,
+    });
+
+    const bufferSource = audioContext.createBufferSource();
+    bufferSource.buffer = audioContext.createBuffer(
+      1,
+      audioBuffer.length,
+      audioContext.sampleRate,
     );
+    bufferSource.buffer.getChannelData(0).set(audioBuffer);
+
+    const reverbNode = reverb.generate(bufferSource);
+    const gainNode = audioContext.createGain();
+    gainNode.gain.value = preset.wetLevel + preset.dryLevel;
+
+    bufferSource.connect(reverbNode);
+    reverbNode.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    await bufferSource.start();
+    await audioContext.resume();
+
+    const processedBuffer = new Float32Array(audioBuffer.length);
+    audioContext.destination.getChannelData(0).set(processedBuffer);
 
     return processedBuffer;
   } catch (error) {

@@ -80,7 +80,7 @@ export const DatabaseConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type DatabaseConfig = z.infer<typeof DatabaseConfigSchema>;
+export type DatabaseConfig = z.ZodType<any, any, any>;
 
 // Create and validate the configuration object
 const config = DatabaseConfigSchema.getProperties();

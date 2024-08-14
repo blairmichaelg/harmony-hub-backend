@@ -42,10 +42,56 @@ export const SecurityConfigSchema = convict({
     env: 'FILE_ENCRYPTION_CONFIG',
     sensitive: true,
   },
-  // Add more security-specific fields as needed
+  cors: {
+    doc: 'CORS configuration',
+    format: z.object({
+      origin: z.string().optional(),
+      methods: z.array(z.string()).optional(),
+      allowedHeaders: z.array(z.string()).optional(),
+      exposedHeaders: z.array(z.string()).optional(),
+      credentials: z.boolean().optional(),
+    }),
+    default: {
+      origin: '*',
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      exposedHeaders: ['Content-Type', 'Authorization'],
+      credentials: true,
+    },
+    env: 'CORS_CONFIG',
+  },
+  rateLimiting: {
+    doc: 'Rate limiting configuration',
+    format: z.object({
+      enabled: z.boolean().describe('Whether rate limiting is enabled'),
+      windowMs: z
+        .number()
+        .positive()
+        .describe('Window duration in milliseconds'),
+      max: z.number().positive().describe('Maximum requests per window'),
+      keyGenerator: z
+        .string()
+        .optional()
+        .describe('Key generator function name'),
+    }),
+    default: {
+      enabled: true,
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100,
+      keyGenerator: 'ip',
+    },
+    env: 'RATE_LIMITING_CONFIG',
+  },
+  contentSecurityPolicy: {
+    doc: 'Content Security Policy configuration',
+    format: z.string().optional(),
+    default:
+      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self';",
+    env: 'CONTENT_SECURITY_POLICY',
+  },
 });
 
-export type SecurityConfig = z.infer<typeof SecurityConfigSchema>;
+export type SecurityConfig = z.ZodType<any, any, any>;
 
 // Create and validate the configuration object
 const config = SecurityConfigSchema.getProperties();

@@ -61,7 +61,7 @@ export const generateWaveform = (
 };
 
 /**
- * Extracts audio metadata from a file path
+ * Extracts audio metadata from a file path using the `music-metadata` library
  * @param {string} filePath - The path to the audio file
  * @returns {Promise<AudioMetadata>} A promise resolving to the audio metadata
  * @throws {CustomError} If metadata extraction fails
@@ -70,21 +70,22 @@ export const extractAudioMetadata = async (
   filePath: string,
 ): Promise<AudioMetadata> => {
   try {
-    // Placeholder - Implement actual metadata extraction using a library like music-metadata
-    const metadata: AudioMetadata = {
-      title: 'Test Title',
-      artist: 'Test Artist',
-      album: 'Test Album',
-      genre: 'Test Genre',
-      year: 2024,
-      duration: 180,
-      sampleRate: 44100,
-      channels: 2,
-      bitrate: 320000,
-      format: 'mp3',
-    };
+    const musicMetadata = require('music-metadata'); // Import music-metadata dynamically
 
-    return metadata;
+    const metadata = await musicMetadata.parseFile(filePath);
+
+    return {
+      title: metadata.common.title || '',
+      artist: metadata.common.artist || '',
+      album: metadata.common.album || '',
+      genre: metadata.common.genre || '',
+      year: metadata.common.year || null,
+      duration: metadata.format.duration || 0,
+      sampleRate: metadata.format.sampleRate || 0,
+      channels: metadata.format.numberOfChannels || 0,
+      bitrate: metadata.format.bitrate || 0,
+      format: metadata.format.container || '',
+    };
   } catch (error) {
     throw new CustomError(
       'Failed to extract audio metadata',

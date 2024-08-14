@@ -55,7 +55,7 @@ export const cacheConfigSchema = convict({
   // Add more configuration options as needed
 });
 
-export type CacheConfig = z.infer<typeof cacheConfigSchema>;
+export type CacheConfig = z.ZodType<any, any, any>;
 
 const config = cacheConfigSchema.getProperties();
 

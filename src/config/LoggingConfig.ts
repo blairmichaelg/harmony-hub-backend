@@ -43,7 +43,7 @@ export const LoggingConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type LoggingConfig = z.infer<typeof LoggingConfigSchema>;
+export type LoggingConfig = z.ZodType<any, any, any>;
 
 const config = LoggingConfigSchema.getProperties();
 

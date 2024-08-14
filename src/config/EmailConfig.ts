@@ -36,7 +36,7 @@ export const EmailConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type EmailConfig = z.infer<typeof EmailConfigSchema>;
+export type EmailConfig = z.ZodType<any, any, any>;
 
 const config = EmailConfigSchema.getProperties();
 

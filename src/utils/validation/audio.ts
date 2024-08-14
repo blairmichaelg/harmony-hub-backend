@@ -31,7 +31,8 @@ export const AudioFileExtensionSchema = z
   .refine(
     (ext) =>
       audioProcessingConfig.supportedFormats.some(
-        (format) => format.extension === ext.toLowerCase(),
+        (format: { extension: string }) =>
+          format.extension === ext.toLowerCase(),
       ),
     {
       message: 'Unsupported audio file extension',
@@ -190,7 +191,63 @@ export const validateAudioCodec = (codec: string): string => {
   return z
     .enum([
       audioProcessingConfig.defaultCodec,
-      ...audioProcessingConfig.supportedFormats.map((f) => f.extension),
+      ...audioProcessingConfig.supportedFormats.map(
+        (format: { codec: any; extension: any }) => f.codec || f.extension,
+      ),
     ])
     .parse(codec);
+};
+
+/**
+ * Validates reverb settings
+ * @param settings - The reverb settings to validate
+ * @returns The validated reverb settings
+ * @throws ZodError if validation fails
+ */
+export const validateReverbSettings = (settings: unknown): ReverbSettings => {
+  return ReverbSettingsSchema.parse(settings);
+};
+
+/**
+ * Validates equalization settings
+ * @param settings - The equalization settings to validate
+ * @returns The validated equalization settings
+ * @throws ZodError if validation fails
+ */
+export const validateEQSettings = (settings: unknown): EQSettings => {
+  return EQSettingsSchema.parse(settings);
+};
+
+/**
+ * Sanitizes HTML content by removing potentially harmful tags and attributes
+ * @param {string} content - The file content to sanitize
+ * @returns {string} The sanitized file content
+ */
+export const sanitizeHTML = (
+  content: string,
+  options: { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[] },
+): string => {
+  const allowedTags = options.ALLOWED_TAGS.map((tag) => tag.toLowerCase());
+  const allowedAttributes = options.ALLOWED_ATTR.map((attr) =>
+    attr.toLowerCase(),
+  );
+  const sanitizedContent = content.replace(/<[^>]+>/g, (match) => {
+    const tag = match.toLowerCase();
+    const tagName = tag.match(/<(\w+)/)?.[1];
+
+    if (!tagName || !allowedTags.includes(tagName)) {
+      return '';
+    }
+
+    const attributes = tag.match(/(\w+)=["'](.*?)["']/g) || [];
+    const validAttributes = attributes.filter((attr) => {
+      const [name, value] =
+        attr.match(/(\w+)=["'](.*?)["']/g)?.[0].split('=') || [];
+      return allowedAttributes.includes(name.toLowerCase());
+    });
+
+    return `<${tagName}${validAttributes.join(' ')}>`;
+  });
+
+  return sanitizedContent;
 };

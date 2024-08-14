@@ -3,6 +3,10 @@
 import { audioProcessingConfig } from '../../config/AudioProcessingConfig';
 import { CustomError } from '../errorUtils';
 
+const audioProcessingConfigTyped = audioProcessingConfig as {
+  supportedFormats: Array<{ extension: string; mimeType: string; codec?: string }>;
+};
+
 /**
  * Gets the list of supported audio formats from the configuration
  * @returns {Array<{ extension: string; mimeType: string }>} An array of supported audio formats
@@ -42,7 +46,7 @@ export const isAudioFormatSupported = (extension: string): boolean => {
  * @param {string} extension - The file extension
  * @returns {{ mimeType: string; codec: string }} An object containing the MIME type and codec for the format
  * @throws {CustomError} If the format is not supported
- */
+  const format = audioProcessingConfigTyped.supportedFormats.find(
 export const getAudioFormatInfo = (
   extension: string,
 ): { mimeType: string; codec: string } => {
@@ -60,6 +64,6 @@ export const getAudioFormatInfo = (
 
   return {
     mimeType: format.mimeType,
-    codec: format.extension, // Using extension as codec for simplicity
+    codec: format.codec || format.extension, // Using extension as codec for simplicity
   };
 };

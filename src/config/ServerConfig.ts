@@ -30,7 +30,7 @@ export const ServerConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type ServerConfig = z.infer<typeof ServerConfigSchema>;
+export type ServerConfig = z.ZodType<any, any, any>;
 
 const config = ServerConfigSchema.getProperties();
 

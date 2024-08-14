@@ -12,10 +12,10 @@ import { decrypt, encrypt, hashSHA256 } from './crypto';
 import { CustomError } from './errorUtils';
 import logger from './logging';
 import { createStorageProvider, Storage } from './storageProviderSDK';
-import { sanitizeFilename, sanitizeHTML } from './string';
 import {
   AudioMetadataSchema,
   AudioProcessingOptionsSchema,
+  sanitizeHTML,
   validateFileSize,
 } from './validation/audio';
 
@@ -107,6 +107,30 @@ const validateFileMetadata = (metadata: FileMetadata): void => {
 };
 
 /**
+ * Sanitizes a filename by removing potentially harmful characters
+ * @param {string} filename - The filename to sanitize
+ * @returns {string} The sanitized filename
+ */
+const sanitizeFilename = (filename: string): string => {
+  return filename.replace(/[^a-zA-Z0-9._-]/g, '');
+};
+
+/**
+ * Generates a secure filename by adding a timestamp and random string to the original filename
+ * @param {string} originalFilename - The original filename
+ * @returns {string} The secure filename
+ */
+export const generateSecureFilename = (originalFilename: string): string => {
+  const sanitized = sanitizeFilename(originalFilename);
+  const timestamp = Date.now();
+  const randomString = Math.random().toString(36).substring(2, 15);
+  const extension = path.extname(sanitized);
+  const nameWithoutExtension = path.basename(sanitized, extension);
+
+  return `${nameWithoutExtension}-${timestamp}-${randomString}${extension}`;
+};
+
+/**
  * Streams a file to the configured storage provider, optionally applying audio processing
  * @param {string} filePath - The path to the file
  * @param {FileMetadata} metadata - The file metadata
@@ -190,7 +214,6 @@ export const getFileFromStorage = async (
   try {
     if (performanceConfig.caching.enabled) {
       const cachedFile = await cache.get(`file:${fileIdentifier}`);
-
       if (cachedFile) {
         logger.info('File retrieved from cache', { fileIdentifier });
 
@@ -231,21 +254,6 @@ export const getFileFromStorage = async (
 };
 
 /**
- * Generates a secure filename by adding a timestamp and random string to the original filename
- * @param {string} originalFilename - The original filename
- * @returns {string} The secure filename
- */
-export const generateSecureFilename = (originalFilename: string): string => {
-  const sanitized = sanitizeFilename(originalFilename);
-  const timestamp = Date.now();
-  const randomString = Math.random().toString(36).substring(2, 15);
-  const extension = path.extname(sanitized);
-  const nameWithoutExtension = path.basename(sanitized, extension);
-
-  return `${nameWithoutExtension}-${timestamp}-${randomString}${extension}`;
-};
-
-/**
  * Sanitizes file content by removing potentially harmful HTML tags and attributes
  * @param {string} content - The file content to sanitize
  * @returns {string} The sanitized file content
@@ -282,6 +290,7 @@ export const memoizedFileOperation = ((): ((
     switch (operation) {
       case 'processMetadata':
         // TODO: Implement actual metadata processing logic here
+        logger.info('Processing metadata:', input);
         result = { input, processed: true };
         break;
       default:

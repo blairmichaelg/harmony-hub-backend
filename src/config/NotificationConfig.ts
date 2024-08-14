@@ -38,7 +38,7 @@ export const NotificationConfigSchema = convict({
   // Add more fields as needed for future extensibility
 });
 
-export type NotificationConfig = z.infer<typeof NotificationConfigSchema>;
+export type NotificationConfig = z.ZodType<any, any, any>;
 
 const config = NotificationConfigSchema.getProperties();
 

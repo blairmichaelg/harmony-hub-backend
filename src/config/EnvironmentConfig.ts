@@ -1,7 +1,6 @@
 // src/config/EnvironmentConfig.ts
 
 import convict from 'convict';
-import { z } from 'zod';
 
 /**
  * Schema for environment configuration
@@ -18,9 +17,10 @@ export const EnvironmentConfigSchema = convict({
   // Add more environment-specific fields as needed
 });
 
-export type EnvironmentConfig = z.infer<typeof EnvironmentConfigSchema>;
+export type EnvironmentConfig = {
+  name: 'development' | 'production' | 'test';
+};
 
-// Create and validate the configuration object
 const config = EnvironmentConfigSchema.getProperties();
 
 export const environmentConfig: EnvironmentConfig =
